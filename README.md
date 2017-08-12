@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.1.0
+Version 0.2.0
 
 librecaptcha is a free/libre program and library that allows you to solve
 [reCAPTCHA] challenges.
@@ -71,6 +71,15 @@ usually expire after a couple of minutes.)
 
 [0]: https://example.com:443
 [Python's path]: https://docs.python.org/3/library/sys.html#sys.path
+
+
+What's new
+----------
+
+Version 0.2.0:
+
+* The current reCAPTCHA version is now fetched during initialization and no
+  longer needs to be manually updated.
 
 
 Dependencies

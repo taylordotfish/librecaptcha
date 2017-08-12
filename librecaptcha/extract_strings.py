@@ -25,6 +25,7 @@ import os.path
 
 
 def make_parser():
+    # File descriptor hackiness to silence warnings
     null_fd = os.open(os.devnull, os.O_RDWR)
     old_fd = os.dup(2)
     try:
@@ -70,10 +71,10 @@ def extract_strings(javascript):
     return strings
 
 
-def extract_and_save(url, path, version, user_agent):
+def extract_and_save(url, path, version, rc_version, user_agent):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
-        print(version, file=f)
+        print("{}/{}".format(version, rc_version), file=f)
         js = load_javascript(url, user_agent)
         strings = extract_strings(js)
         strings_json = json.dumps(strings)

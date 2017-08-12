@@ -28,16 +28,15 @@ import io
 import json
 import os
 import os.path
+import re
 import sys
 import time
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 BASE_URL = "https://www.google.com/recaptcha/api2/"
-RC_VERSION = "r20170627110205"
-JS_URL = "https://www.gstatic.com/recaptcha/api2/{}/recaptcha__en.js".format(
-    RC_VERSION,
-)
+API_JS_URL = "https://www.google.com/recaptcha/api.js"
+JS_URL_TEMPLATE = "https://www.gstatic.com/recaptcha/api2/{}/recaptcha__en.js"
 
 STRINGS_VERSION = "0.1.0"
 STRINGS_PATH = os.path.join(
@@ -136,11 +135,11 @@ def read_indices(prompt, max_index):
         print("Numbers out of bounds.")
 
 
-def get_js_strings(user_agent):
+def get_js_strings(user_agent, rc_version):
     def get_json():
         with open(STRINGS_PATH) as f:
             version, text = f.read().split("\n", 1)
-            if version != STRINGS_VERSION:
+            if version != "{}/{}".format(STRINGS_VERSION, rc_version):
                 raise OSError("Incorrect version: {}".format(version))
             return json.loads(text)
 
@@ -150,11 +149,23 @@ def get_js_strings(user_agent):
         pass
 
     result = extract_and_save(
-        JS_URL, STRINGS_PATH, STRINGS_VERSION, user_agent,
+        JS_URL_TEMPLATE.format(rc_version), STRINGS_PATH, STRINGS_VERSION,
+        rc_version, user_agent,
     )
 
     print()
     return result
+
+
+def get_rc_version(user_agent):
+    match = re.search(r"/recaptcha/api2/(.+?)/", requests.get(
+        API_JS_URL, headers={
+            "User-Agent": user_agent,
+        }
+    ).text)
+    if match is None:
+        raise RuntimeError("Could not extract version from api.js.")
+    return match.group(1)
 
 
 def get_image(data):
@@ -368,7 +379,8 @@ class MultiCaptchaSolver:
 
 
 class ReCaptcha:
-    def __init__(self, api_key, site_url, debug, user_agent=None):
+    def __init__(self, api_key, site_url, debug, user_agent=None,
+                 make_requests=True):
         self.api_key = api_key
         self.site_url = get_rc_site_url(site_url)
         self._debug = debug
@@ -377,7 +389,12 @@ class ReCaptcha:
         self.first_token = None
         self.current_token = None
         self.user_agent = user_agent or random_user_agent()
-        self.js_strings = get_js_strings(self.user_agent)
+
+        self.js_strings = None
+        self.rc_version = None
+        if make_requests:
+            self.rc_version = get_rc_version(self.user_agent)
+            self.js_strings = get_js_strings(self.user_agent, self.rc_version)
 
     def debug(self, *args, **kwargs):
         if self._debug:
@@ -423,7 +440,7 @@ class ReCaptcha:
         params = params or {}
         if api:
             params["k"] = self.api_key
-            params["v"] = RC_VERSION
+            params["v"] = self.rc_version
         headers = self.get_headers(headers)
 
         r = requests.get(
@@ -441,7 +458,7 @@ class ReCaptcha:
         data = data or {}
         if api:
             params["k"] = self.api_key
-            data["v"] = RC_VERSION
+            data["v"] = self.rc_version
         headers = self.get_headers(headers)
 
         r = requests.post(
