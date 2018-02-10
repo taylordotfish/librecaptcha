@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.2.0
+Version 0.2.1
 
 librecaptcha is a free/libre program and library that allows you to solve
 [reCAPTCHA] challenges.
@@ -45,9 +45,9 @@ Usage
 Run ``./librecaptcha.py`` for usage information.
 
 To use librecaptcha programmatically, make sure this repository (or whatever
-the parent directory of the “librecaptcha” package is) is in [Python's path].
-Your program can then run ``from librecaptcha import get_token`` and call the
-``get_token()`` function.
+the parent directory of the “librecaptcha” package is) is in
+[Python’s path][0]. Your program can then run
+``from librecaptcha import get_token`` and call the ``get_token()`` function.
 
 The signature of ``get_token()`` is:
 
@@ -60,7 +60,7 @@ Parameters:
 * ``api_key`` (string): The reCAPTCHA API key to use.
 * ``site_url`` (string): The base URL of the site that contains the reCAPTCHA
   challenge. This should start with “http://” or “https://” and include the
-  hostname, but nothing else. For example, “[https://example.com:443][0]”.
+  hostname, but nothing else. For example, “[https://example.com:443][1]”.
 * ``debug`` (bool): Whether or not to print debug information.
 * ``user_agent`` (string): The user-agent string to use. If not specified, a
   random one will be used.
@@ -69,12 +69,16 @@ Returns (string): A reCAPTCHA token. This should usually be submitted with the
 form as the value of the “g-recaptcha-response” field. (Note: these tokens
 usually expire after a couple of minutes.)
 
-[0]: https://example.com:443
-[Python's path]: https://docs.python.org/3/library/sys.html#sys.path
+[0]: https://docs.python.org/3/library/sys.html#sys.path
+[1]: https://example.com:443
 
 
-What's new
+What’s new
 ----------
+
+Version 0.2.1:
+
+* Updated user-agent list.
 
 Version 0.2.0:
 

@@ -32,7 +32,7 @@ import re
 import sys
 import time
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 BASE_URL = "https://www.google.com/recaptcha/api2/"
 API_JS_URL = "https://www.google.com/recaptcha/api.js"
@@ -58,6 +58,7 @@ def get_font(size):
         except OSError:
             pass
     return ImageFont.load_default()
+
 
 FONT_SIZE = 16
 FONT = get_font(FONT_SIZE)

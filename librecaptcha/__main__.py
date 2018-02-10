@@ -55,5 +55,6 @@ def main():
           'form as the value of the "g-recaptcha-response" field.')
     print("Token: {}".format(uvtoken))
 
+
 if __name__ == "__main__":
     main()
