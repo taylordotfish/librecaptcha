@@ -1,4 +1,4 @@
-# Copyright (C) 2017 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2017-2018 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -17,3 +17,9 @@
 
 from . import librecaptcha, extract_strings, user_agents
 from .librecaptcha import __version__, get_token, ReCaptcha
+from .__main__ import main
+
+# Silence Pyflakes
+assert [librecaptcha, extract_strings, user_agents]
+assert [__version__, get_token, ReCaptcha]
+assert [main]
