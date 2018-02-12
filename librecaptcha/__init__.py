@@ -1,4 +1,4 @@
-# Copyright (C) 2017 nickolas360 <contact@nickolas360.com>
+# Copyright (C) 2017-2018 nickolas360 <contact@nickolas360.com>
 #
 # This file is part of librecaptcha.
 #
@@ -17,3 +17,9 @@
 
 from . import librecaptcha, extract_strings, user_agents
 from .librecaptcha import __version__, get_token, ReCaptcha
+from .__main__ import main
+
+# Silence Pyflakes
+assert [librecaptcha, extract_strings, user_agents]
+assert [__version__, get_token, ReCaptcha]
+assert [main]

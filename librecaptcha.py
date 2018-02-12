@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2017 nickolas360 <contact@nickolas360.com>
+# Copyright (C) 2017-2018 nickolas360 <contact@nickolas360.com>
 #
 # This file is part of librecaptcha.
 #
@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
-from librecaptcha import *
 from librecaptcha.__main__ import main
 
 if __name__ == "__main__":

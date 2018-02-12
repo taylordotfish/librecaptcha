@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.2.1
+Version 0.2.2
 
 librecaptcha is a free/libre program and library that allows you to solve
 [reCAPTCHA] challenges.
@@ -75,6 +75,10 @@ usually expire after a couple of minutes.)
 
 What’s new
 ----------
+
+Version 0.2.2:
+
+* Cleaned up some code.
 
 Version 0.2.1:
 
