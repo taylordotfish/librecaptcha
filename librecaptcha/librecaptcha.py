@@ -32,7 +32,7 @@ import re
 import sys
 import time
 
-__version__ = "0.2.2"
+__version__ = "0.3.3"
 
 BASE_URL = "https://www.google.com/recaptcha/api2/"
 API_JS_URL = "https://www.google.com/recaptcha/api.js"
