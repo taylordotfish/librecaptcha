@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.3.4-dev
+Version 0.3.4
 
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
@@ -91,6 +91,10 @@ usually expire after a couple of minutes.)
 
 What’s new
 ----------
+
+Version 0.3.4:
+
+* Fixed possible encoding issue in ``setup.py``.
 
 Version 0.3.3:
 
