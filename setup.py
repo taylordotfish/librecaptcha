@@ -38,7 +38,7 @@ def long_description():
 
 setup(
     name="librecaptcha",
-    version="0.3.4",
+    version="0.3.5-dev",
     description="A free/libre interface for solving reCAPTCHA challenges.",
     long_description=long_description(),
     url="https://github.com/nickolas360/librecaptcha",
