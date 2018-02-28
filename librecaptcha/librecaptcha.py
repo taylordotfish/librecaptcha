@@ -29,6 +29,7 @@ import json
 import os
 import os.path
 import re
+import subprocess
 import sys
 import time
 
@@ -211,9 +212,36 @@ def draw_indices(image, rows, columns):
         draw.text(text_loc, str(i + 1), fill=(255, 255, 255), font=FONT)
 
 
-class DynamicSolver:
-    def __init__(self, recaptcha, pmeta):
+class Solver:
+    def __init__(self, recaptcha):
         self.rc = recaptcha
+        self._image_procs = []
+
+    def show_image(self, image):
+        if not os.path.isfile("/usr/bin/env"):
+            image.show()
+            return
+
+        img_buffer = io.BytesIO()
+        image.save(img_buffer, "png")
+        img_bytes = img_buffer.getvalue()
+
+        proc = subprocess.Popen(
+            ["/usr/bin/env", "display", "-"], stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc.stdin.write(img_bytes)
+        proc.stdin.close()
+        self._image_procs.append(proc)
+
+    def hide_images(self):
+        for proc in self._image_procs:
+            proc.terminate()
+        self._image_procs.clear()
+
+
+class DynamicSolver(Solver):
+    def __init__(self, recaptcha, pmeta):
+        super().__init__(recaptcha)
         self.original_selections = []
         self.selections = []
 
@@ -236,7 +264,7 @@ class DynamicSolver:
             "k": self.rc.api_key,
         }).content)
         draw_indices(image, self.num_rows, self.num_columns)
-        image.show()
+        self.show_image(image)
 
         print("Take a look at the grid of tiles that just appeared. ", end="")
         print("({} rows, {} columns)".format(self.num_rows, self.num_columns))
@@ -248,58 +276,56 @@ class DynamicSolver:
         indices = read_indices(
             "Enter numbers separated by spaces: ", self.num_tiles,
         )
+        self.hide_images()
         self.original_selections += indices
         print()
 
     def select_tile(self, index):
-        self.selections.append(index)
-        r = self.rc.post("replaceimage", data={
-            "c": self.rc.current_token,
-            "ds": "[{}]".format(index),
-        })
-        last_request_time = time.monotonic()
-
-        while True:
-            data = load_rc_json(r.text)
-            self.current_index += 1
-
-            self.rc.current_token = data[1]
-            replacement_id = data[2][0]
-
-            image = get_image(self.rc.get("payload", api=False, params={
-                "c": self.rc.current_token,
-                "k": self.rc.api_key,
-                "id": replacement_id,
-            }).content)
-            image.show()
-
-            print("Take a look at the image that just appeared.")
-            select = input(
-                "Should this image be selected? [y/N] ",
-            ).lower().startswith("y")
-
+        selected = True
+        current_index = index
+        while selected:
+            last_request_time = time.monotonic()
+            selected = self.tile_iteration(current_index)
             time_elapsed = time.monotonic() - last_request_time
             sleep_duration = max(DYNAMIC_SELECT_DELAY - time_elapsed, 0)
 
             if sleep_duration >= 0.25:
                 print("Waiting (to avoid sending requests too quickly)...")
             print()
-
             time.sleep(sleep_duration)
-            if not select:
-                return
+            current_index = self.current_index
 
-            self.selections.append(self.current_index)
-            r = self.rc.post("replaceimage", data={
-                "c": self.rc.current_token,
-                "ds": "[{}]".format(self.current_index),
-            })
-            last_request_time = time.monotonic()
+    def tile_iteration(self, index):
+        self.selections.append(index)
+        r = self.rc.post("replaceimage", data={
+            "c": self.rc.current_token,
+            "ds": "[{}]".format(index),
+        })
+
+        data = load_rc_json(r.text)
+        self.current_index += 1
+
+        self.rc.current_token = data[1]
+        replacement_id = data[2][0]
+
+        image = get_image(self.rc.get("payload", api=False, params={
+            "c": self.rc.current_token,
+            "k": self.rc.api_key,
+            "id": replacement_id,
+        }).content)
+        self.show_image(image)
+
+        print("Take a look at the image that just appeared.")
+        selected = input(
+            "Should this image be selected? [y/N] ",
+        )[:1].lower() == "y"
+        self.hide_images()
+        return selected
 
 
-class MultiCaptchaSolver:
+class MultiCaptchaSolver(Solver):
     def __init__(self, recaptcha, pmeta):
-        self.rc = recaptcha
+        super().__init__(recaptcha)
         self.selection_groups = []
 
         self.num_rows = None
@@ -331,20 +357,21 @@ class MultiCaptchaSolver:
         print("Take a look at the grid of tiles that just appeared. ", end="")
         print("({} rows, {} columns)".format(self.num_rows, self.num_columns))
         print("Which tiles should be selected?")
-        print("(Top-left tile is 1, bottom-right tile is {})".format(
+        print("(Top-left tile is 1; bottom-right tile is {}.)".format(
             self.num_tiles,
         ))
 
         indices = read_indices(
             "Enter numbers separated by spaces: ", self.num_tiles,
         )
+        self.hide_images()
         self.selection_groups.append(list(sorted(indices)))
         print()
 
     def show_image(self, image):
         draw_lines(image, self.num_rows, self.num_columns)
         draw_indices(image, self.num_rows, self.num_columns)
-        image.show()
+        super().show_image(image)
 
     def first_payload(self):
         image = get_image(self.rc.get("payload", api=False, params={
