@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.3.5-dev
+Version 0.4.0
 
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
@@ -92,12 +92,13 @@ usually expire after a couple of minutes.)
 What’s new
 ----------
 
-Version 0.3.4:
+Version 0.4.0:
+
+* Image windows are now automatically closed when questions are answered.
+
+Version 0.3.x:
 
 * Fixed possible encoding issue in ``setup.py``.
-
-Version 0.3.3:
-
 * librecaptcha can now be installed from PyPI, or from the Git repository with
   pip or ``setup.py``.
 
