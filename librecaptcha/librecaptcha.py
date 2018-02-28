@@ -33,7 +33,7 @@ import subprocess
 import sys
 import time
 
-__version__ = "0.3.5-dev"
+__version__ = "0.4.0"
 
 BASE_URL = "https://www.google.com/recaptcha/api2/"
 API_JS_URL = "https://www.google.com/recaptcha/api.js"
