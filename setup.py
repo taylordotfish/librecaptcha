@@ -68,4 +68,7 @@ setup(
         "requests>=2.18.1",
         "slimit>=0.8.1",
     ],
+    extras_require={
+        'gtk': ['PyGObject>=3.30.0', 'requests-futures>=0.9.7']
+    }
 )
