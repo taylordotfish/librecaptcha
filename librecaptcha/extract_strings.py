@@ -44,9 +44,9 @@ def make_parser_silent():
         os.close(old_fd)
 
 
-make_parser = make_parser_raw
+make_parser = make_parser_silent
 if SHOW_WARNINGS:
-    make_parser = make_parser_silent
+    make_parser = make_parser_raw
 
 
 def load_javascript(url, user_agent):
