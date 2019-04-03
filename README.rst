@@ -7,7 +7,7 @@ librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
 
 *librecaptcha does not automatically solve challenges and is not designed to
-make it easier to do so---it provides an interface through which a human can
+make it easier to do so—it provides an interface through which a human can
 solve the challenges without proprietary software.*
 
 .. _reCAPTCHA: https://en.wikipedia.org/wiki/ReCAPTCHA
