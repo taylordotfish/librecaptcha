@@ -6,8 +6,9 @@ Version 0.4.1-dev
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
 
-*This does not automatically solve challenges. It provides an interface through
-which a human can solve them.*
+*librecaptcha does not automatically solve challenges and is not designed to
+make it easier to do so---it provides an interface through which a human can
+solve the challenges without proprietary software.*
 
 .. _reCAPTCHA: https://en.wikipedia.org/wiki/ReCAPTCHA
 
@@ -20,9 +21,10 @@ From PyPI
 
 Install with `pip`_::
 
-    sudo pip3 install librecaptcha
+    sudo pip3 install librecaptcha[gtk]
 
 To install locally, run without ``sudo`` and add the ``--user`` option.
+You can omit ``[gtk]`` if you don’t want to install the GTK 3 GUI.
 
 
 From the Git repository
@@ -36,14 +38,11 @@ installed)::
 
 Then install with `pip`_::
 
-    sudo pip3 install .
+    sudo pip3 install .[gtk]
 
-Alternatively, you can run::
+To install locally, run without ``sudo`` and add the ``--user`` option.
+You can omit ``[gtk]`` if you don’t want to install the GTK 3 GUI.
 
-    sudo ./setup.py install
-
-With either command, to install locally, run without ``sudo`` and add the
-``--user`` option.
 
 Run without installing
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -53,8 +52,7 @@ Then, install the required dependencies by running::
 
     sudo pip3 install -r requirements.txt
 
-To install the dependencies locally, run without ``sudo`` and add the
-``--user`` option.
+To install the dependencies locally, run without ``sudo`` and add ``--user``.
 
 .. _pip: https://pip.pypa.io
 .. _Git: https://git-scm.com
@@ -64,33 +62,62 @@ Usage
 -----
 
 If you installed librecaptcha, you can simply run ``librecaptcha``.
-Otherwise, run ``./librecaptcha.py``. This will show usage information.
+Otherwise, run ``./librecaptcha.py``. Pass the ``--help`` option to show usage
+information.
 
 To use librecaptcha programmatically, import it::
 
-    from librecaptcha import get_token
+    import librecaptcha
 
-and then call the ``get_token()`` function. Its signature is::
+and then call ``librecaptcha.get_token()``. Its signature is::
 
-    get_token(api_key, site_url, debug=False, user_agent=None)
+    get_token(
+        api_key: str,
+        site_url: str,
+        user_agent: str, *,
+        gui=False,
+        debug=False,
+    ) -> str
 
 Parameters:
 
-* ``api_key`` (str): The reCAPTCHA API key to use.
-* ``site_url`` (str): The base URL of the site that contains the reCAPTCHA
-  challenge. This should start with ``http://`` or ``https://`` and include the
-  hostname, but nothing else. For example, ``https://example.com``.
-* ``debug`` (bool): Whether or not to print debug information.
-* ``user_agent`` (str): The user-agent string to use. If not specified, a
-  random one will be used.
+* ``api_key``:
+  The reCAPTCHA API key to use. This is usually the value of the
+  ``data-sitekey`` HTML attribute.
 
-Returns (str): A reCAPTCHA token. This should usually be submitted with the
-form as the value of the ``g-recaptcha-response`` field. (Note: These tokens
-usually expire after a couple of minutes.)
+* ``site_url``:
+  The base URL of the site that contains the reCAPTCHA challenge. This should
+  start with ``http://`` or ``https://`` and include the hostname. Everything
+  after the hostname is optional. For example: ``https://example.com``
+
+* ``user_agent``:
+  The user-agent string to use. This should match the user-agent used when
+  sending the request that requires a reCAPTCHA token. You can generate a
+  random user-agent string with ``librecaptcha.random_user_agent()``.
+
+* ``gui``:
+  Whether to use the GTK 3 GUI (as opposed to the CLI). The CLI writes to
+  standard output and reads from standard input.
+
+* ``debug``:
+  Whether to print debug information.
+
+Returns: A reCAPTCHA token. This should usually be submitted with the form as
+the value of the ``g-recaptcha-response`` field. These tokens usually expire
+after a couple of minutes.
 
 
 What’s new
 ----------
+
+Version 0.4.1-dev:
+
+* Added a GTK 3 GUI (thanks, cyclopsian!).
+* ``get_token()`` now has an optional ``gui`` parameter.
+* ``get_token()`` now requires a user-agent string.
+* ``librecaptcha.py`` now has a ``--gui`` option.
+* ``librecaptcha.py`` now accepts an optional ``<user-agent>`` argument.
+  If not provided, a random user-agent string is chosen and shown.
 
 Version 0.4.0:
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2019 nickolas360 <contact@nickolas360.com>
+# Copyright (C) 2019 nickolas360 <contact@nickolas360.com>
 #
 # This file is part of librecaptcha.
 #
@@ -15,9 +15,20 @@
 # You should have received a copy of the GNU General Public License
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
-from .user_agent_data import USER_AGENTS
-import random
 
+class Frontend:
+    def __init__(self, recaptcha):
+        self.rc = rc = recaptcha
+        rc.on_token = self.__handle_token
 
-def random_user_agent():
-    return random.choice(USER_AGENTS)
+    def __handle_token(self, token, **kwargs):
+        self.on_token(token)
+
+    def on_token(self, token: str, **kwargs):
+        """Callback; set this attribute in the parent class."""
+        raise NotImplementedError
+
+    def run(self, callback=None):
+        if callback:
+            self.on_token = callback
+        self.rc.run()
