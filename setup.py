@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2016-2018 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2016-2019 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -23,7 +23,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 REPO_URL = "https://github.com/taylordotfish/librecaptcha"
 DESC_REPLACEMENTS = {
     ".. _LICENSE: LICENSE":
-        ".. _LICENSE: {}/blob/master/LICENSE".format(REPO_URL),
+    ".. _LICENSE: {}/blob/master/LICENSE".format(REPO_URL),
 }
 
 
@@ -55,6 +55,7 @@ setup(
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
     ],
     keywords="captcha recaptcha",
     packages=["librecaptcha"],
@@ -69,6 +70,8 @@ setup(
         "slimit>=0.8.1",
     ],
     extras_require={
-        'gtk': ['PyGObject>=3.30.0', 'requests-futures>=0.9.7']
-    }
+        "gtk": [
+            "PyGObject>=3.30.0",
+        ]
+    },
 )

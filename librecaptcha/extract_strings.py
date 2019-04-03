@@ -1,4 +1,4 @@
-# Copyright (C) 2017 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2017, 2019 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -22,23 +22,35 @@ import requests
 import json
 import os
 import os.path
+import sys
+
+SHOW_WARNINGS = False
 
 
-def make_parser():
+def make_parser_raw():
+    return Parser()
+
+
+def make_parser_silent():
     # File descriptor hackiness to silence warnings
     null_fd = os.open(os.devnull, os.O_RDWR)
     old_fd = os.dup(2)
     try:
         os.dup2(null_fd, 2)
-        return Parser()
+        return make_parser_raw()
     finally:
         os.dup2(old_fd, 2)
         os.close(null_fd)
         os.close(old_fd)
 
 
+make_parser = make_parser_raw
+if SHOW_WARNINGS:
+    make_parser = make_parser_silent
+
+
 def load_javascript(url, user_agent):
-    print("Downloading <{}>...".format(url))
+    print("Downloading <{}>...".format(url), file=sys.stderr)
     r = requests.get(url, headers={
         "User-Agent": user_agent,
     })
@@ -46,7 +58,7 @@ def load_javascript(url, user_agent):
 
 
 def extract_strings(javascript):
-    print("Extracting strings...")
+    print("Extracting strings...", file=sys.stderr)
     parsed = make_parser().parse(javascript)
     strings = []
 
@@ -78,6 +90,6 @@ def extract_and_save(url, path, version, rc_version, user_agent):
         js = load_javascript(url, user_agent)
         strings = extract_strings(js)
         strings_json = json.dumps(strings)
-        print('Saving strings to "{}"...'.format(path))
+        print('Saving strings to "{}"...'.format(path), file=sys.stderr)
         f.write(strings_json)
         return strings

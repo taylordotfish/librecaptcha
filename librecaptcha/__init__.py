@@ -15,11 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
+# flake8: noqa
 from . import librecaptcha, extract_strings, user_agents
-from .librecaptcha import __version__, get_token, ReCaptcha
+from .recaptcha import ReCaptcha
+from .librecaptcha import __version__, get_token
+from .user_agents import USER_AGENTS, random_user_agent
 from .__main__ import main
-
-# Silence Pyflakes
-assert [librecaptcha, extract_strings, user_agents]
-assert [__version__, get_token, ReCaptcha]
-assert [main]
