@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.4.1-dev
+Version 0.5.0
 
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
@@ -63,7 +63,8 @@ Usage
 
 If you installed librecaptcha, you can simply run ``librecaptcha``.
 Otherwise, run ``./librecaptcha.py``. Pass the ``--help`` option to show usage
-information.
+information. If you’d like to use the GUI, be sure to pass the ``--gui``
+option.
 
 To use librecaptcha programmatically, import it::
 
@@ -107,10 +108,32 @@ the value of the ``g-recaptcha-response`` field. These tokens usually expire
 after a couple of minutes.
 
 
+Notes
+-----
+
+librecaptcha currently supports two types of challenges: *dynamic* and
+*multicaptcha*.
+
+*dynamic* challenges present you with a grid of different images and ask you to
+select the images that match the given description. Each time you click an
+image, a new one takes its place. Usually, three images from the initial
+set match the description, and at least one of the replacement images does as
+well.
+
+*multicaptcha* challenges present you with one large image split into a grid
+of tiles and ask you to select the tiles that contain a given object. It is
+possible to select no tiles; however, it appears that this is rarely the
+correct answer.
+
+**Note:** Even when all challenges are completed and a token is obtained, the
+token may still be rejected when used. If this happens, simply try again.
+Waiting a while may also help.
+
+
 What’s new
 ----------
 
-Version 0.4.1-dev:
+Version 0.5.0:
 
 * Added a GTK 3 GUI (thanks, cyclopsian!).
 * ``get_token()`` now has an optional ``gui`` parameter.
@@ -139,18 +162,20 @@ Version 0.2.x:
 Dependencies
 ------------
 
-* `Python`_ ≥ 3.4
+* `Python`_ ≥ 3.5
 * The following Python packages (the installation instructions above handle
   installing these):
 
   - `Pillow`_ ≥ 4.1.1
   - `requests`_ ≥ 2.18.1
   - `slimit`_ ≥ 0.8.1
+  - `PyGObject`_ ≥ 3.30.0 (only for GUI)
 
 .. _Python: https://www.python.org/
-.. _Pillow: https://pypi.python.org/pypi/Pillow/
-.. _requests: https://pypi.python.org/pypi/requests/
-.. _slimit: https://pypi.python.org/pypi/slimit/
+.. _Pillow: https://pypi.org/project/Pillow/
+.. _requests: https://pypi.org/project/requests/
+.. _slimit: https://pypi.org/project/slimit/
+.. _PyGObject: https://pypi.org/project/PyGObject/
 
 
 License

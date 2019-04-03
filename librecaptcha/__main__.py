@@ -115,6 +115,10 @@ class ArgParser:
             self.parsed.help = True
             self.end_early = True
             return
+        if body == "version":
+            self.parsed.version = True
+            self.end_early = True
+            return
         if body == "gui":
             self.parsed.gui = True
             return
