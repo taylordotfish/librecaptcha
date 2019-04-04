@@ -82,8 +82,7 @@ def get_meta(pmeta, probable_index):
         raise TypeError("pmeta is not a list: {!r}".format(pmeta))
 
     def matches(meta):
-        if meta and isinstance(meta, list):
-            return True
+        return meta and isinstance(meta, list)
 
     if probable_index < len(pmeta):
         meta = pmeta[probable_index]
