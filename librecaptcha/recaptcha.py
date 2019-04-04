@@ -189,11 +189,11 @@ class DynamicSolver(Solver, HasGrid):
 
     def finish(self, block=True):
         if block:
-            time.sleep(self.finish_timeout)
+            time.sleep(self.final_timeout)
         self.on_solved(self.selections)
 
     @property
-    def finish_timeout(self):
+    def final_timeout(self):
         return max(self.get_timeout(i) for i in range(self.num_tiles))
 
     def get_timeout(self, index):
