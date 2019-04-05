@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.5.2-dev
+Version 0.6.0
 
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
@@ -135,6 +135,11 @@ times—perhaps even ten.
 
 What’s new
 ----------
+
+Version 0.6.0:
+
+* Added ``librecaptcha.has_gui()``, which returns whether the GUI can be used.
+* Improved cross-platform support for the CLI.
 
 Version 0.5.0:
 
