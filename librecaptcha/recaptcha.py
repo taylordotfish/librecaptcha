@@ -130,7 +130,7 @@ def get_rc_version(user_agent):
     match = re.search(r"/recaptcha/api2/(.+?)/", requests.get(
         API_JS_URL, headers={
             "User-Agent": user_agent,
-        }
+        },
     ).text)
     if match is None:
         raise RuntimeError("Could not extract version from api.js.")

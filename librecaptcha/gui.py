@@ -318,7 +318,7 @@ class MultiCaptchaDialog(BaseCaptchaDialog):
     def make_grid_item(self, index, pixbuf, **kwargs):
         button = ChallengeToggleButton(pixbuf)
         button.connect(
-            "toggled", lambda obj: self.handle_toggled(obj, index)
+            "toggled", lambda obj: self.handle_toggled(obj, index),
         )
         return button
 
