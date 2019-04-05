@@ -360,7 +360,7 @@ class ReCaptcha:
             index = self.js_strings.index(id, start)
             for i in range(FIND_GOAL_SEARCH_DISTANCE):
                 next_str = self.js_strings[index + i + 1]
-                if next_str.startswith("Select all "):
+                if re.match(r"\bselect all\b", next_str, re.I):
                     matching_strings.append((i, index, next_str))
             start = index + FIND_GOAL_SEARCH_DISTANCE + 1
 
