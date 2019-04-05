@@ -19,7 +19,7 @@ from . import cli
 from .errors import GtkImportError, UserError
 from .recaptcha import ReCaptcha
 
-__version__ = "0.5.2-dev"
+__version__ = "0.6.0"
 
 
 def _get_gui():
