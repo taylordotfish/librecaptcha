@@ -18,6 +18,7 @@
 
 import requests
 from html.parser import HTMLParser
+import json
 import os.path
 import re
 
@@ -31,12 +32,10 @@ HEADER = """\
 # from <https://techblog.willshouse.com/2012/01/03/most-common-user-agents/>.
 
 # flake8: noqa
-USER_AGENTS = [
+USER_AGENTS = \
 """
 
-FOOTER = """\
-]
-"""
+FOOTER = "\n"
 
 
 class Parser(HTMLParser):
@@ -70,8 +69,7 @@ def get_agents(data):
 
 def write_agents(agents, file):
     print(HEADER, file=file, end="")
-    for agent in agents:
-        print(" " * 4 + repr(agent) + ",", file=file)
+    json.dump(agents, file, indent=4)
     print(FOOTER, file=file, end="")
 
 

@@ -36,6 +36,11 @@ def long_description():
     return "".join(result)
 
 
+LICENSE = """\
+License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)\
+"""
+
+
 setup(
     name="librecaptcha",
     version="0.5.2-dev",
@@ -47,9 +52,7 @@ setup(
     license="GNU General Public License v3 or later (GPLv3+)",
     classifiers=[
         "Development Status :: 4 - Beta",
-        "Topic :: Internet",
-        "License :: OSI Approved :: "
-        "GNU General Public License v3 or later (GPLv3+)",
+        "Topic :: Internet", LICENSE,
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.5",
