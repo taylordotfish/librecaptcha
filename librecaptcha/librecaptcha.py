@@ -22,31 +22,29 @@ from .recaptcha import ReCaptcha
 __version__ = "0.5.2-dev"
 
 
-class GuiModule:
-    module = None
+def _get_gui():
+    try:
+        from . import gui
+    except GtkImportError as e:
+        raise UserError(
+            "Error: Could not load the GUI. Is PyGObject installed?\n"
+            "Try (re)installing librecaptcha[gtk] with pip.\n"
+            "For more details, add the --debug option.",
+        ) from e
+    return gui
 
-    @classmethod
-    def _load(cls):
-        try:
-            from . import gui
-        except GtkImportError as e:
-            raise UserError(
-                "Error: Could not load the GUI. Is PyGObject installed?\n"
-                "Try (re)installing librecaptcha[gtk] with pip.\n"
-                "For more details, add the --debug option.",
-            ) from e
-        cls.module = gui
 
-    @classmethod
-    def get(cls):
-        if cls.module is None:
-            cls._load()
-        return cls.module
+def has_gui():
+    try:
+        from . import gui  # noqa: F401
+    except GtkImportError:
+        return False
+    return True
 
 
 def get_token(api_key, site_url, user_agent, *, gui=False, debug=False):
     rc = ReCaptcha(api_key, site_url, user_agent, debug=debug)
-    ui = (GuiModule.get().Gui if gui else cli.Cli)(rc)
+    ui = (_get_gui().Gui if gui else cli.Cli)(rc)
     uvtoken = None
 
     def callback(token):

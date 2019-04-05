@@ -129,7 +129,8 @@ of no tiles.
 
 **Note:** Even when all challenges are completed and a token is obtained, the
 token may still be rejected when used. If this happens, simply try again.
-Waiting a while may also help.
+Waiting a while may also help. Unfortunately, you may have to try many
+times—perhaps even ten.
 
 
 What’s new
