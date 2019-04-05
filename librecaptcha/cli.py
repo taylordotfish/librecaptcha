@@ -24,7 +24,6 @@ from queue import Queue
 import io
 import json
 import os
-import os.path
 import subprocess
 import sys
 import time
@@ -62,13 +61,17 @@ def read_indices(prompt, max_index):
 
 def draw_lines(image, rows, columns):
     draw = ImageDraw.Draw(image)
+
+    def line(p1, p2):
+        draw.line([p1, p2], fill=(255, 255, 255), width=2)
+
     for i in range(1, rows):
-        y = int(image.height * i / rows) - 1
-        draw.line([(0, y), (image.width, y)], fill=(255, 255, 255), width=2)
+        y = image.height * i // rows - 1
+        line((0, y), (image.width, y))
 
     for i in range(1, columns):
-        x = int(image.width * i / columns) - 1
-        draw.line([(x, 0), (x, image.height)], fill=(255, 255, 255), width=2)
+        x = image.width * i // columns - 1
+        line((x, 0), (x, image.height))
 
 
 def draw_indices(image, rows, columns):
@@ -77,8 +80,8 @@ def draw_indices(image, rows, columns):
         row = i // columns
         column = i % columns
         corner = (
-            int(image.width * column / columns),
-            int(image.height * (row + 1) / rows),
+            image.width * column // columns,
+            image.height * (row + 1) // rows,
         )
         text_loc = (
             corner[0] + round(FONT_SIZE / 2),
@@ -111,23 +114,34 @@ class CliSolver:
     def __init__(self, solver):
         self.solver = solver
         self.__image_procs = []
+        self.__has_display = (os.name == "posix")
 
-    def show_image(self, image):
-        if not os.path.isfile("/usr/bin/env"):
-            image.show()
-            return
+    def __run_display(self, img_bytes):
+        return subprocess.Popen(
+            ["display", "-"], stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
 
+    def __try_display(self, image):
+        if not self.__has_display:
+            return False
         img_buffer = io.BytesIO()
         image.save(img_buffer, "png")
         img_bytes = img_buffer.getvalue()
 
-        proc = subprocess.Popen(
-            ["/usr/bin/env", "display", "-"], stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        try:
+            proc = self.__run_display(img_bytes)
+        except FileNotFoundError:
+            self.__has_display = False
+            return False
         proc.stdin.write(img_bytes)
         proc.stdin.close()
         self.__image_procs.append(proc)
+        return True
+
+    def show_image(self, image):
+        if not self.__try_display(image):
+            image.show()
 
     def hide_images(self):
         for proc in self.__image_procs:

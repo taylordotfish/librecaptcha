@@ -121,9 +121,11 @@ set match the description, and at least one of the replacement images does as
 well.
 
 *multicaptcha* challenges present you with one large image split into a grid
-of tiles and ask you to select the tiles that contain a given object. It is
-possible to select no tiles; however, it appears that this is rarely the
-correct answer.
+of tiles and ask you to select the tiles that contain a given object.
+Occasionally, the image will not contain the object, but rather something that
+looks similar. It is possible to select no tiles in this case, but reCAPTCHA
+may have been fooled by the similar-looking object and would reject a selection
+of no tiles.
 
 **Note:** Even when all challenges are completed and a token is obtained, the
 token may still be rejected when used. If this happens, simply try again.
