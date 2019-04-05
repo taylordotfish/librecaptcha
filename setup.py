@@ -43,7 +43,7 @@ License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)\
 
 setup(
     name="librecaptcha",
-    version="0.6.2-dev",
+    version="0.6.2",
     description="A free/libre interface for solving reCAPTCHA challenges.",
     long_description=long_description(),
     url="https://github.com/nickolas360/librecaptcha",
