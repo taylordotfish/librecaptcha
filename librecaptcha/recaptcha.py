@@ -373,7 +373,7 @@ class ReCaptcha:
         try:
             goal = min(matching_strings)[2]
         except ValueError:
-            return None
+            return None, None
 
         raw = goal
         plain = raw.replace("<strong>", "").replace("</strong>", "")
