@@ -1,4 +1,4 @@
-# Copyright (C) 2017, 2019 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2017, 2019, 2021 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -22,6 +22,7 @@ import requests
 import json
 import os
 import os.path
+import re
 import sys
 
 SHOW_WARNINGS = False
@@ -59,6 +60,10 @@ def load_javascript(url, user_agent):
 
 def extract_strings(javascript):
     print("Extracting strings...", file=sys.stderr)
+    # Hack to work around https://github.com/rspivak/slimit/issues/52
+    KEYWORDS = r"(?:catch|delete|return|throw)"
+    javascript = re.sub(rf"(\.\s*{KEYWORDS})\b", r"\1_", javascript)
+    javascript = re.sub(rf"\b({KEYWORDS})(\s*:)", r"'\1'\2", javascript)
     parsed = make_parser().parse(javascript)
     strings = []
 
