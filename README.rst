@@ -127,10 +127,15 @@ looks similar. It is possible to select no tiles in this case, but reCAPTCHA
 may have been fooled by the similar-looking object and would reject a selection
 of no tiles.
 
-**Note:** Even when all challenges are completed and a token is obtained, the
-token may still be rejected when used. If this happens, simply try again.
-Waiting a while may also help. Unfortunately, you may have to try many
-times—perhaps even ten.
+
+Known issues
+------------
+
+Even when all challenges are completed and a token is obtained, the token may
+still be rejected when used. If this happens, simply try again. Waiting a
+while, using a computer on a different network, or using a different user-agent
+string may also help. Unfortunately, you may have to try many times—perhaps
+dozens or more.
 
 
 What’s new
