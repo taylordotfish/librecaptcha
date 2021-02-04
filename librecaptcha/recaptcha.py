@@ -35,7 +35,9 @@ import time
 
 BASE_URL = "https://www.google.com/recaptcha/api2/"
 API_JS_URL = "https://www.google.com/recaptcha/api.js"
-JS_URL_TEMPLATE = "https://www.gstatic.com/recaptcha/releases/{}/recaptcha__en.js"
+JS_URL_TEMPLATE = """\
+https://www.gstatic.com/recaptcha/releases/{}/recaptcha__en.js\
+"""
 
 STRINGS_VERSION = "0.1.0"
 STRINGS_PATH = os.path.join(
