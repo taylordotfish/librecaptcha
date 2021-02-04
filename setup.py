@@ -58,6 +58,8 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     keywords="captcha recaptcha",
     packages=["librecaptcha"],
@@ -68,12 +70,12 @@ setup(
     },
     install_requires=[
         "Pillow>=4.1.1",
-        "requests>=2.18.1",
-        "slimit>=0.8.1",
+        "requests>=2.18.1,<3",
+        "slimit>=0.8.1,<0.9",
     ],
     extras_require={
         "gtk": [
-            "PyGObject>=3.30.0",
+            "PyGObject>=3.30.0,<4",
         ]
     },
 )
