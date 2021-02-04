@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2019 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2019, 2021 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -21,6 +21,14 @@ from html.parser import HTMLParser
 import json
 import os.path
 import re
+import sys
+
+USAGE = """\
+Usage:
+  update-user-agents.py
+  update-user-agents.py <html-file>
+  update-user-agents.py -h | --help
+"""
 
 URL = "https://techblog.willshouse.com/2012/01/03/most-common-user-agents/"
 SCRIPT_DIR = os.path.dirname(__file__)
@@ -74,9 +82,22 @@ def write_agents(agents, file):
 
 
 def main():
-    r = requests.get(URL)
+    if len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]:
+        print(USAGE, end="")
+        sys.exit(0)
+
+    if len(sys.argv) > 2:
+        print(USAGE, end="", file=sys.stderr)
+        sys.exit(1)
+
+    if len(sys.argv) > 1:
+        with open(sys.argv[1], encoding="utf8") as f:
+            text = f.read()
+    else:
+        text = requests.get(URL).text
+
     parser = Parser()
-    parser.feed(r.text)
+    parser.feed(text)
     with open(OUT_PATH, "w", encoding="utf8") as f:
         agents = get_agents(parser.result)
         write_agents(agents, f)
