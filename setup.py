@@ -43,7 +43,7 @@ License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)\
 
 setup(
     name="librecaptcha",
-    version="0.6.4",
+    version="0.6.5",
     description="A free/libre interface for solving reCAPTCHA challenges.",
     long_description=long_description(),
     url="https://github.com/taylordotfish/librecaptcha",
@@ -73,6 +73,7 @@ setup(
         "requests>=2.18.1,<3",
         "slimit>=0.8.1,<0.9",
     ],
+    python_requires=">=3.5",
     extras_require={
         "gtk": [
             "PyGObject>=3.30.0,<4",
