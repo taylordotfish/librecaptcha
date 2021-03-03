@@ -1,4 +1,4 @@
-# Copyright (C) 2017, 2019 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2017, 2019, 2021 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -15,14 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
-from .errors import UserError
+from .errors import ChallengeBlockedError, UnknownChallengeError
+from .errors import SiteUrlParseError
 from .extract_strings import extract_and_save
+from .typing import Dict, Iterable, List, Tuple
 
 from PIL import Image
 import requests
 
+from collections import namedtuple
 from html.parser import HTMLParser
-from threading import Thread
+from typing import Optional, Union
 from urllib.parse import urlparse
 import base64
 import io
@@ -36,8 +39,8 @@ import time
 BASE_URL = "https://www.google.com/recaptcha/api2/"
 API_JS_URL = "https://www.google.com/recaptcha/api.js"
 JS_URL_TEMPLATE = """\
-https://www.gstatic.com/recaptcha/releases/{}/recaptcha__en.js\
-"""
+https://www.gstatic.com/recaptcha/releases/{}/recaptcha__en.js
+"""[:-1]
 
 STRINGS_VERSION = "0.1.0"
 STRINGS_PATH = os.path.join(
@@ -48,18 +51,31 @@ DYNAMIC_SELECT_DELAY = 4.5  # seconds
 FIND_GOAL_SEARCH_DISTANCE = 10
 
 
-def get_full_url(url):
+def get_testing_url(url: str) -> str:
+    return urlparse(url)._replace(
+        scheme="http",
+        netloc="localhost:55476",
+    ).geturl()
+
+
+if os.getenv("LIBRECAPTCHA_USE_TEST_SERVER"):
+    BASE_URL = get_testing_url(BASE_URL)
+    API_JS_URL = get_testing_url(API_JS_URL)
+    JS_URL_TEMPLATE = get_testing_url(JS_URL_TEMPLATE)
+
+
+def get_full_url(url: str) -> str:
     return BASE_URL.rstrip("/") + "/" + url.lstrip("/")
 
 
-def get_rc_site_url(url):
+def get_rc_site_url(url: str) -> str:
     parsed = urlparse(url)
     if not parsed.hostname:
-        raise UserError("Error: Site URL has no hostname.")
+        raise SiteUrlParseError("Error: Site URL has no hostname.")
     if not parsed.scheme:
-        raise UserError("Error: Site URL has no scheme.")
+        raise SiteUrlParseError("Error: Site URL has no scheme.")
     if parsed.scheme not in ["http", "https"]:
-        raise UserError(
+        raise SiteUrlParseError(
             "Error: Site URL has invalid scheme: {}".format(parsed.scheme),
         )
     port = parsed.port
@@ -68,18 +84,18 @@ def get_rc_site_url(url):
     return "{}://{}:{}".format(parsed.scheme, parsed.hostname, port)
 
 
-def rc_base64(string):
+def rc_base64(string: str) -> str:
     data = string
     if isinstance(string, str):
         data = string.encode()
     return base64.b64encode(data, b"-_").decode().replace("=", ".")
 
 
-def load_rc_json(text):
+def load_rc_json(text: str):
     return json.loads(text.split("\n", 1)[1])
 
 
-def get_meta(pmeta, probable_index):
+def get_meta(pmeta, probable_index: int):
     if not isinstance(pmeta, list):
         raise TypeError("pmeta is not a list: {!r}".format(pmeta))
 
@@ -107,7 +123,7 @@ def get_rresp(uvresp):
     return None
 
 
-def get_js_strings(user_agent, rc_version):
+def get_js_strings(user_agent: str, rc_version: str) -> List[str]:
     def get_json():
         with open(STRINGS_PATH) as f:
             version, text = f.read().split("\n", 1)
@@ -121,14 +137,17 @@ def get_js_strings(user_agent, rc_version):
         pass
 
     result = extract_and_save(
-        JS_URL_TEMPLATE.format(rc_version), STRINGS_PATH, STRINGS_VERSION,
-        rc_version, user_agent,
+        url=JS_URL_TEMPLATE.format(rc_version),
+        path=STRINGS_PATH,
+        version=STRINGS_VERSION,
+        rc_version=rc_version,
+        user_agent=user_agent,
     )
     print(file=sys.stderr)
     return result
 
 
-def get_rc_version(user_agent):
+def get_rc_version(user_agent: str) -> str:
     match = re.search(r"/recaptcha/releases/(.+?)/", requests.get(
         API_JS_URL, headers={
             "User-Agent": user_agent,
@@ -139,89 +158,140 @@ def get_rc_version(user_agent):
     return match.group(1)
 
 
-def get_image(data):
-    return Image.open(io.BytesIO(data))
+def get_image(data: bytes) -> Image.Image:
+    image = Image.open(io.BytesIO(data))
+    if image.mode in ["RGB", "RGBA"]:
+        return image
+    return image.convert("RGB")
 
 
-class Solver:
-    def __init__(self, recaptcha):
+def varint_encode(n: int, out: bytearray) -> bytes:
+    if n < 0:
+        raise ValueError("n must be nonnegative")
+    while True:
+        b = n & 127
+        n >>= 7
+        if n > 0:
+            out.append(b | 128)
+        else:
+            out.append(b)
+            break
+
+
+def protobuf_encode(fields: Iterable[Tuple[int, bytes]]) -> bytes:
+    result = bytearray()
+    for num, value in fields:
+        # Wire type of 2 indicates a length-delimited field.
+        varint_encode((num << 3) | 2, result)
+        varint_encode(len(value), result)
+        result += value
+    return bytes(result)
+
+
+def format_reload_protobuf(
+    rc_version: str,
+    token: str,
+    reason: str,
+    api_key: str,
+) -> bytes:
+    # Note: We're not sending fields 3, 5, and 16.
+    return protobuf_encode([
+        (1, rc_version.encode()),
+        (2, token.encode()),
+        (6, reason.encode()),
+        (14, api_key.encode()),
+    ])
+
+
+class GridDimensions(namedtuple("GridDimensions", [
+    "rows",  # int
+    "columns",  # int
+])):
+    @property
+    def count(self) -> int:
+        return self.rows * self.columns
+
+
+Solution = namedtuple("Solution", [
+    "response",
+])
+
+ImageGridChallenge = namedtuple("ImageGridChallenge", [
+    "goal",  # ChallengeGoal
+    "image",  # Image.Image
+    "dimensions",  # GridDimensions
+])
+
+DynamicTile = namedtuple("DynamicTile", [
+    "image",  # Image.Image
+    "delay",  # float
+])
+
+
+class DynamicSolver:
+    def __init__(self, recaptcha: "ReCaptcha", pmeta):
         self.rc = recaptcha
-
-    def on_solved(response, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
-
-
-class HasGrid:
-    @property
-    def num_rows(self):
-        return self.dimensions[0]
-
-    @property
-    def num_columns(self):
-        return self.dimensions[1]
-
-    @property
-    def num_tiles(self):
-        return self.num_rows * self.num_columns
-
-
-class DynamicSolver(Solver, HasGrid):
-    def __init__(self, recaptcha, pmeta):
-        super().__init__(recaptcha)
         self.selections = []
         meta = get_meta(pmeta, 1)
         self.meta = meta
-        self.dimensions = (meta[3], meta[4])
         self.tile_index_map = list(range(self.num_tiles))
         self.last_request_map = [0] * self.num_tiles
         self.latest_index = self.num_tiles - 1
+        self.challenge_retrieved = False
 
-    def on_initial_image(self, image, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
+    def get_challenge(self) -> ImageGridChallenge:
+        if self.challenge_retrieved:
+            raise RuntimeError("Challenge was already retrieved")
+        self.challenge_retrieved = True
+        goal = self.rc.get_challenge_goal(self.meta)
+        image = self._first_image()
+        return ImageGridChallenge(
+            goal=goal,
+            image=image,
+            dimensions=self.dimensions,
+        )
 
-    def on_tile_image(self, index, image, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
+    def select_tile(self, index: int) -> DynamicTile:
+        if not self.challenge_retrieved:
+            raise RuntimeError("Challenge must be retrieved first")
+        image = self._replace_tile(index)
+        delay = self.get_timeout(index)
+        return DynamicTile(image=image, delay=delay)
 
-    def run(self):
-        self.rc.show_challenge_goal(self.meta)
-        self.first_payload()
-
-    def finish(self, block=True):
-        if block:
-            time.sleep(self.final_timeout)
-        self.on_solved(self.selections)
+    def finish(self) -> Solution:
+        if not self.challenge_retrieved:
+            raise RuntimeError("Challenge must be retrieved first")
+        return Solution(self.selections)
 
     @property
     def final_timeout(self):
         return max(self.get_timeout(i) for i in range(self.num_tiles))
 
-    def get_timeout(self, index):
+    @property
+    def dimensions(self) -> GridDimensions:
+        return GridDimensions(rows=self.meta[3], columns=self.meta[4])
+
+    @property
+    def num_tiles(self):
+        return self.dimensions.count
+
+    def get_timeout(self, index: int):
         elapsed = time.monotonic() - self.last_request_map[index]
         duration = max(DYNAMIC_SELECT_DELAY - elapsed, 0)
         return duration
 
-    def first_payload(self):
-        image = get_image(self.rc.get("payload", api=False, params={
-            "c": self.rc.current_token,
-            "k": self.rc.api_key,
+    def _first_image(self) -> Image.Image:
+        return get_image(self.rc.get("payload", params={
+            "p": None,
+            "k": None,
         }).content)
-        self.on_initial_image(image)
 
-    def select_tile(self, index):
-        def target():
-            time.sleep(self.get_timeout(index))
-            self.on_tile_image(index, image)
-        image = self.replace_tile(index)
-        Thread(target=target, daemon=True).start()
-
-    def replace_tile(self, index):
+    def _replace_tile(self, index: int) -> Image.Image:
         real_index = self.tile_index_map[index]
         self.selections.append(real_index)
         r = self.rc.post("replaceimage", data={
-            "c": self.rc.current_token,
+            "v": None,
+            "c": None,
             "ds": "[{}]".format(real_index),
         })
 
@@ -231,76 +301,98 @@ class DynamicSolver(Solver, HasGrid):
         self.tile_index_map[index] = self.latest_index
 
         self.rc.current_token = data[1]
+        self.rc.current_p = data[5]
         replacement_id = data[2][0]
 
-        image = get_image(self.rc.get("payload", api=False, params={
-            "c": self.rc.current_token,
-            "k": self.rc.api_key,
+        # The server might not return any image, but it seems unlikely in
+        # practice. If it becomes a problem we can handle this case.
+        return get_image(self.rc.get("payload", params={
+            "p": None,
+            "k": None,
             "id": replacement_id,
         }).content)
-        return image
 
 
-class MultiCaptchaSolver(Solver, HasGrid):
-    def __init__(self, recaptcha, pmeta):
-        super().__init__(recaptcha)
+class MultiCaptchaSolver:
+    def __init__(self, recaptcha: "ReCaptcha", pmeta):
+        """The current challenge."""
+        self.rc = recaptcha
         self.selection_groups = []
-        self.dimensions = None
         self.challenge_type = None
-        self.previous_token = None
-        self.previous_id = None
         self.id = "2"
         self.metas = list(get_meta(pmeta, 5)[0])
-        self.next_challenge()
+        self.challenge_index = -1
 
-    def on_image(self, image, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
+    def first_challenge(self) -> ImageGridChallenge:
+        if self.challenge_index >= 0:
+            raise RuntimeError("Already retrieved first challenge")
+        return self._get_challenge(self._first_image())
 
-    def run(self):
-        self.first_payload()
-
-    def next_challenge(self):
-        meta = self.metas.pop(0)
-        self.dimensions = (meta[3], meta[4])
-        self.rc.show_challenge_goal(meta)
-
-    def select_indices(self, indices):
+    def select_indices(self, indices) -> Union[ImageGridChallenge, Solution]:
+        if self.challenge_index < 0:
+            raise RuntimeError("First challenge wasn't retrieved")
         self.selection_groups.append(list(sorted(indices)))
-        if self.metas:
-            self.replace_image()
-            return
-        self.on_solved(self.selection_groups)
+        if not self.metas:
+            return Solution(self.selection_groups)
+        return self._get_challenge(self._replace_image())
 
-    def first_payload(self):
-        image = get_image(self.rc.get("payload", api=False, params={
+    def _get_challenge(self, image: Image.Image):
+        self.challenge_index += 1
+        meta = self.metas.pop(0)
+        dimensions = GridDimensions(rows=meta[3], columns=meta[4])
+        goal = self.rc.get_challenge_goal(meta)
+        return ImageGridChallenge(
+            goal=goal,
+            image=image,
+            dimensions=dimensions,
+        )
+
+    def _first_image(self) -> Image.Image:
+        return get_image(self.rc.get("payload", params={
             "c": self.rc.current_token,
             "k": self.rc.api_key,
         }).content)
-        self.on_image(image)
 
-    def replace_image(self):
+    def _replace_image(self) -> Image.Image:
         selections = self.selection_groups[-1]
         r = self.rc.post("replaceimage", data={
+            "v": None,
             "c": self.rc.current_token,
             "ds": json.dumps([selections], separators=",:"),
         })
 
         data = load_rc_json(r.text)
-        self.previous_token = self.rc.current_token
         self.rc.current_token = data[1]
 
-        replacement_id = (data[2] or [None])[0]
-        self.previous_id = self.id
-        self.id = replacement_id
-        self.next_challenge()
+        prev_p = self.rc.current_p
+        self.rc.current_p = data[5]
 
-        image = get_image(self.rc.get("payload", api=False, params={
-            "c": self.previous_token,
-            "k": self.rc.api_key,
-            "id": self.previous_id,
+        prev_id = self.id
+        self.id = (data[2] or [None])[0]
+
+        return get_image(self.rc.get("payload", params={
+            "p": prev_p,
+            "k": None,
+            "id": prev_id,
         }).content)
-        self.on_image(image)
+
+
+Solver = Union[DynamicSolver, MultiCaptchaSolver]
+
+
+class ChallengeGoal(namedtuple("ChallengeGoal", [
+    "raw",  # Optional[str]
+    "meta",
+])):
+    @property
+    def plain(self) -> Optional[str]:
+        if self.raw is None:
+            return None
+        return self.raw.replace("<strong>", "").replace("</strong>", "")
+
+    @property
+    def fallback(self) -> str:
+        return json.dumps(self.meta)
 
 
 class ReCaptcha:
@@ -308,11 +400,12 @@ class ReCaptcha:
                  make_requests=True):
         self.api_key = api_key
         self.site_url = get_rc_site_url(site_url)
-        self._debug = debug
+        self.debug = debug
         self.co = rc_base64(self.site_url)
 
         self.first_token = None
         self.current_token = None
+        self.current_p = None
         self.user_agent = user_agent
 
         self.js_strings = None
@@ -320,40 +413,37 @@ class ReCaptcha:
         if make_requests:
             self.rc_version = get_rc_version(self.user_agent)
             self.js_strings = get_js_strings(self.user_agent, self.rc_version)
+        self.solver_index = -1
 
-    def on_goal(goal: str, meta, *, raw: str):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
+    def first_solver(self) -> Solver:
+        if self.solver_index >= 0:
+            raise RuntimeError("First solver was already retrieved")
+        self._request_first_token()
+        rresp = self._get_first_rresp()
+        return self._get_solver(rresp)
 
-    def on_token(token: str, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
+    def send_solution(self, solution: Solution) -> Union[Solver, str]:
+        if self.solver_index < 0:
+            raise RuntimeError("First solver wasn't retrieved")
+        uvtoken, rresp = self._verify(solution.response)
+        if rresp is not None:
+            return self._get_solver(rresp)
+        if not uvtoken:
+            raise RuntimeError("Got neither uvtoken nor new rresp.")
+        return uvtoken
 
-    def on_challenge(type: str, **kwargs):
-        """Callback (optional); set this attribute in the parent class."""
-        pass
+    def debug_print(self, *args, **kwargs):
+        if not self.debug:
+            return
+        if len(args) == 1 and callable(args[0]):
+            args = (args[0](),)
+        print(*args, file=sys.stderr, **kwargs)
 
-    def on_challenge_dynamic(solver: DynamicSolver, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
+    def get_challenge_goal(self, meta) -> ChallengeGoal:
+        raw = self.find_challenge_goal_text(meta[0])
+        return ChallengeGoal(raw=raw, meta=meta)
 
-    def on_challenge_multicaptcha(solver: MultiCaptchaSolver, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
-
-    def on_challenge_blocked(type: str, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
-
-    def on_challenge_unknown(type: str, **kwargs):
-        """Callback; set this attribute in the parent class."""
-        raise NotImplementedError
-
-    def debug(self, *args, **kwargs):
-        if self._debug:
-            print(*args, file=sys.stderr, **kwargs)
-
-    def find_challenge_goal(self, id, raw=False):
+    def find_challenge_goal_text(self, id: str, raw=False) -> str:
         start = 0
         matching_strings = []
 
@@ -375,61 +465,69 @@ class ReCaptcha:
         try:
             goal = min(matching_strings)[2]
         except ValueError:
-            return None, None
+            return None
+        return goal
 
-        raw = goal
-        plain = raw.replace("<strong>", "").replace("</strong>", "")
-        return raw, plain
-
-    def show_challenge_goal(self, meta):
-        raw, goal = self.find_challenge_goal(meta[0])
-        self.on_goal(goal, meta, raw=raw)
-
-    def get_headers(self, headers):
+    def get_headers(self, headers: Optional[Dict[str, str]]) -> Dict[str, str]:
         headers = headers or {}
+        updates = {}
         if "User-Agent" not in headers:
-            headers["User-Agent"] = self.user_agent
+            updates["User-Agent"] = self.user_agent
+        if updates:
+            headers = dict(headers)
+            headers.update(updates)
         return headers
 
-    def get(self, url, *, params=None, api=True, headers=None,
-            allow_errors=None, **kwargs):
-        params = params or {}
-        if api:
+    def get(self, url, *, params=None, headers=None, allow_errors=None,
+            **kwargs):
+        if params is None:
+            params = {"k": None, "v": None}
+        if params.get("k", "") is None:
             params["k"] = self.api_key
+        if params.get("v", "") is None:
             params["v"] = self.rc_version
+        if params.get("p", "") is None:
+            params["p"] = self.current_p
         headers = self.get_headers(headers)
 
         r = requests.get(
             get_full_url(url), params=params, headers=headers,
             **kwargs,
         )
-        self.debug("[http] [get] {}".format(r.url))
+        self.debug_print(lambda: "[http] [get] {}".format(r.url))
         if not (allow_errors is True or r.status_code in (allow_errors or {})):
             r.raise_for_status()
         return r
 
-    def post(self, url, *, params=None, data=None, api=True, headers=None,
+    def post(self, url, *, params=None, data=None, headers=None,
              allow_errors=None, no_debug_response=False, **kwargs):
-        params = params or {}
-        data = data or {}
-        if api:
+        if params is None:
+            params = {"k": None}
+        if data is None:
+            data = {"v": None}
+        if params.get("k", "") is None:
             params["k"] = self.api_key
+        if isinstance(data, dict) and data.get("v", "") is None:
             data["v"] = self.rc_version
+        if isinstance(data, dict) and data.get("c", "") is None:
+            data["c"] = self.current_token
         headers = self.get_headers(headers)
 
         r = requests.post(
             get_full_url(url), params=params, data=data, headers=headers,
             **kwargs,
         )
-        self.debug("[http] [post] {}".format(r.url))
-        self.debug("[http] [post] [data] {!r}".format(data))
+        self.debug_print(lambda: "[http] [post] {}".format(r.url))
+        self.debug_print(lambda: "[http] [post] [data] {!r}".format(data))
         if not no_debug_response:
-            self.debug("[http] [post] [response] {}".format(r.text))
+            self.debug_print(
+                lambda: "[http] [post] [response] {}".format(r.text),
+            )
         if not (allow_errors is True or r.status_code in (allow_errors or {})):
             r.raise_for_status()
         return r
 
-    def request_first_token(self):
+    def _request_first_token(self):
         class Parser(HTMLParser):
             def __init__(p_self):
                 p_self.token = None
@@ -440,7 +538,16 @@ class ReCaptcha:
                 if attrs.get("id") == "recaptcha-token":
                     p_self.token = attrs.get("value")
 
-        text = self.get("anchor", params={"co": self.co}).text
+        # Note: We're not sending "cb".
+        text = self.get("anchor", params={
+            "ar": "1",
+            "k": None,
+            "co": self.co,
+            "hl": "en",
+            "v": None,
+            "size": "normal",
+            "sa": "action",
+        }).text
         parser = Parser()
         parser.feed(text)
 
@@ -448,74 +555,60 @@ class ReCaptcha:
             raise RuntimeError(
                 "Could not get first token. Response:\n{}".format(text),
             )
+        self.current_token = parser.token
 
-        self.first_token = parser.token
-        self.current_token = self.first_token
-
-    def verify(self, response):
+    def _verify(self, response):
         response_text = json.dumps({"response": response}, separators=",:")
         response_b64 = rc_base64(response_text)
 
-        self.debug("Sending verify request...")
+        self.debug_print("Sending verify request...")
+        # Note: We're not sending "t", "ct", and "bg".
         r = self.post("userverify", data={
-            "c": self.current_token,
+            "v": None,
+            "c": None,
             "response": response_b64,
         })
 
         uvresp = load_rc_json(r.text)
-        self.debug("Got verify response: {!r}".format(uvresp))
+        self.debug_print(lambda: "Got verify response: {!r}".format(uvresp))
         rresp = get_rresp(uvresp)
         uvresp_token = uvresp[1]
         return (uvresp_token, rresp)
 
-    def get_first_rresp(self):
-        self.debug("Getting first rresp...")
-        r = self.post("reload", data={"reason": "fi", "c": self.first_token})
+    def _get_first_rresp(self):
+        self.debug_print("Getting first rresp...")
+        r = self.post("reload", data=format_reload_protobuf(
+            rc_version=self.rc_version,
+            token=self.current_token,
+            reason="fi",
+            api_key=self.api_key,
+        ), headers={
+            "Content-Type": "application/x-protobuffer",
+        })
         rresp = load_rc_json(r.text)
-        self.debug("Got first rresp: {!r}".format(rresp))
+        self.debug_print(lambda: "Got first rresp: {!r}".format(rresp))
         return rresp
 
-    def handle_solved(self, response, **kwargs):
-        uvtoken, rresp = self.verify(response)
-        if rresp is not None:
-            self.solve_challenge(rresp)
-            return
-        if not uvtoken:
-            raise RuntimeError("Got neither uvtoken nor new rresp.")
-        self.on_token(uvtoken)
-
-    def solve_challenge(self, rresp):
+    def _get_solver(self, rresp) -> Solver:
+        self.solver_index += 1
         challenge_type = rresp[5]
-        self.debug("Challenge type: {}".format(challenge_type))
+        self.debug_print(lambda: "Challenge type: {}".format(challenge_type))
         pmeta = rresp[4]
-        self.debug("pmeta: {}".format(pmeta))
+        self.debug_print(lambda: "pmeta: {}".format(pmeta))
         self.current_token = rresp[1]
-        self.debug("Current token: {}".format(self.current_token))
+        self.current_p = rresp[9]
+        self.debug_print(
+            lambda: "Current token: {}".format(self.current_token),
+        )
 
         solver_class = {
             "dynamic": DynamicSolver,
             "multicaptcha": MultiCaptchaSolver,
         }.get(challenge_type)
 
-        handler = {
-            "dynamic": self.on_challenge_dynamic,
-            "multicaptcha": self.on_challenge_multicaptcha,
-            "default": self.on_challenge_blocked,
-            "doscaptcha": self.on_challenge_blocked,
-        }.get(challenge_type)
+        if solver_class is not None:
+            return solver_class(self, pmeta)
 
-        self.on_challenge(challenge_type)
-        if handler is None:
-            self.on_challenge_unknown(challenge_type)
-            return
-        if solver_class is None:
-            handler(challenge_type)
-            return
-        solver = solver_class(self, pmeta)
-        solver.on_solved = self.handle_solved
-        handler(solver)
-
-    def run(self):
-        self.request_first_token()
-        rresp = self.get_first_rresp()
-        self.solve_challenge(rresp)
+        if challenge_type in ["default", "doscaptcha"]:
+            raise ChallengeBlockedError(challenge_type)
+        raise UnknownChallengeError(challenge_type)
