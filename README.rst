@@ -12,14 +12,6 @@ solve the challenges without proprietary software.*
 
 .. _reCAPTCHA: https://en.wikipedia.org/wiki/ReCAPTCHA
 
-.. image:: misc/screenshot.png
-   :alt: Screenshot of two librecaptcha challenges. The first is a multicaptcha
-         challenge that reads “select all squares with fire hydrants” and the
-         second is a dynamic challenge that reads “select all squares with
-         tractors”.
-
-(`Screenshot attribution <misc/screenshot-attribution.md>`_)
-
 
 Installation
 ------------
