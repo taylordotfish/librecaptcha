@@ -64,7 +64,7 @@ Usage
 If you installed librecaptcha, you can simply run ``librecaptcha``.
 Otherwise, run ``./librecaptcha.py``. Pass the ``--help`` option to show usage
 information. If you’d like to use the GUI, be sure to pass the ``--gui``
-option.
+option. The token will be printed to the terminal once it’s obtained.
 
 To use librecaptcha programmatically, import it::
 
@@ -106,6 +106,9 @@ Parameters:
 Returns: A reCAPTCHA token. This should usually be submitted with the form as
 the value of the ``g-recaptcha-response`` field. These tokens usually expire
 after a couple of minutes.
+
+For a lower-level view of how challenges are obtained and how user input is
+sent, see `recaptcha.py <librecaptcha/recaptcha.py>`_.
 
 
 Notes
