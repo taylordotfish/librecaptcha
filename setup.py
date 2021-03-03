@@ -71,7 +71,7 @@ setup(
     install_requires=[
         "Pillow>=4.1.1",
         "requests>=2.18.1,<3",
-        "slimit>=0.8.1,<0.9",
+        "esprima>=4.0.0,<5",
     ],
     python_requires=">=3.5",
     extras_require={

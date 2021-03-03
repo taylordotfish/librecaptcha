@@ -188,7 +188,7 @@ Dependencies
 
   - `Pillow`_
   - `requests`_
-  - `slimit`_
+  - `esprima`_
   - `PyGObject`_ (only for GUI)
 
 The installation instructions above handle installing the Python packages.
@@ -198,7 +198,7 @@ specific versions of the dependencies that have been confirmed to work.
 .. _Python: https://www.python.org/
 .. _Pillow: https://pypi.org/project/Pillow/
 .. _requests: https://pypi.org/project/requests/
-.. _slimit: https://pypi.org/project/slimit/
+.. _esprima: https://pypi.org/project/esprima/
 .. _PyGObject: https://pypi.org/project/PyGObject/
 
 

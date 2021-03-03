@@ -15,8 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
-from slimit.parser import Parser
-from slimit import ast
+from .typing import List
 import requests
 
 import json
@@ -28,29 +27,7 @@ import sys
 SHOW_WARNINGS = False
 
 
-def make_parser_raw():
-    return Parser()
-
-
-def make_parser_silent():
-    # File descriptor hackiness to silence warnings
-    null_fd = os.open(os.devnull, os.O_RDWR)
-    old_fd = os.dup(2)
-    try:
-        os.dup2(null_fd, 2)
-        return make_parser_raw()
-    finally:
-        os.dup2(old_fd, 2)
-        os.close(null_fd)
-        os.close(old_fd)
-
-
-make_parser = make_parser_silent
-if SHOW_WARNINGS:
-    make_parser = make_parser_raw
-
-
-def load_javascript(url, user_agent):
+def load_javascript(url: str, user_agent: str) -> str:
     print("Downloading <{}>...".format(url), file=sys.stderr)
     r = requests.get(url, headers={
         "User-Agent": user_agent,
@@ -58,29 +35,42 @@ def load_javascript(url, user_agent):
     return r.text
 
 
-def extract_strings(javascript):
-    print("Extracting strings...", file=sys.stderr)
+def extract_strings_slimit(javascript: str) -> List[str]:
+    from slimit.parser import Parser
+    from slimit import ast
+
+    if SHOW_WARNINGS:
+        parser = Parser()
+    else:
+        # File descriptor hackiness to silence warnings
+        null_fd = os.open(os.devnull, os.O_RDWR)
+        old_fd = os.dup(2)
+        try:
+            os.dup2(null_fd, 2)
+            parser = Parser()
+        finally:
+            os.dup2(old_fd, 2)
+            os.close(null_fd)
+            os.close(old_fd)
+
     # Hack to work around https://github.com/rspivak/slimit/issues/52
     KEYWORDS = r"(?:catch|delete|return|throw)"
     javascript = re.sub(rf"(\.\s*{KEYWORDS})\b", r"\1_", javascript)
     javascript = re.sub(rf"\b({KEYWORDS})(\s*:)", r"'\1'\2", javascript)
-    parsed = make_parser().parse(javascript)
+    parsed = parser.parse(javascript)
     strings = []
 
     def add_strings(tree, strings):
         if tree is None:
             return
-
         if not isinstance(tree, (ast.Node, list, tuple)):
             raise TypeError("Unexpected item: {!r}".format(tree))
-
         if isinstance(tree, ast.String):
             strings.append(tree.value[1:-1])
 
         children = tree
         if isinstance(tree, ast.Node):
             children = tree.children()
-
         for child in children:
             add_strings(child, strings)
 
@@ -88,7 +78,30 @@ def extract_strings(javascript):
     return strings
 
 
-def extract_and_save(url, path, version, rc_version, user_agent):
+def extract_strings(javascript: str) -> List[str]:
+    print("Extracting strings...", file=sys.stderr)
+    try:
+        import esprima
+    except ImportError:
+        return extract_strings_slimit(javascript)
+
+    strings = []
+
+    def handle_node(node, *args):
+        if node.type == "Literal" and isinstance(node.value, str):
+            strings.append(node.value)
+
+    esprima.parseScript(javascript, delegate=handle_node)
+    return strings
+
+
+def extract_and_save(
+    url: str,
+    path: str,
+    version: str,
+    rc_version: str,
+    user_agent: str,
+) -> List[str]:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         print("{}/{}".format(version, rc_version), file=f)
