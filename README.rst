@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.7.2
+Version 0.7.3
 
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
@@ -17,6 +17,8 @@ solve the challenges without proprietary software.*
          challenge that reads “select all squares with fire hydrants” and the
          second is a dynamic challenge that reads “select all squares with
          tractors”.
+
+(`Screenshot attribution <misc/screenshot-attribution.md>`_)
 
 
 Installation

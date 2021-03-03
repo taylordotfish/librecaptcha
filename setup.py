@@ -31,8 +31,14 @@ def long_description():
     with open(os.path.join(SCRIPT_DIR, "README.rst"), encoding='utf-8') as f:
         lines = f.read().splitlines()
     result = []
-    for line in lines:
-        result.append(DESC_REPLACEMENTS.get(line, line) + "\n")
+    iterator = iter(lines)
+    for line in iterator:
+        if line.startswith(".. image::"):
+            while "Screenshot attribution" not in next(iterator):
+                pass
+            next(iterator)
+        else:
+            result.append(DESC_REPLACEMENTS.get(line, line) + "\n")
     return "".join(result)
 
 
@@ -43,7 +49,7 @@ License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)\
 
 setup(
     name="librecaptcha",
-    version="0.7.2",
+    version="0.7.3",
     description="A free/libre interface for solving reCAPTCHA challenges.",
     long_description=long_description(),
     url="https://github.com/taylordotfish/librecaptcha",
