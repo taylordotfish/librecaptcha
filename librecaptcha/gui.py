@@ -28,6 +28,7 @@ from typing import Any, Optional, Union
 import html
 import re
 import sys
+import threading
 
 try:
     import gi
@@ -273,6 +274,12 @@ class ImageGridChallengeDialog:
         self.verify = self.dialog.add_button("", Gtk.ResponseType.OK)
         self.verify.get_style_context().add_class("suggested-action")
 
+        def on_click(obj):
+            # This will get reset in `self.update()`, but it prevents multiple
+            # clicks from taking effect if the UI temporarily pauses.
+            self.verify.set_sensitive(False)
+        self.verify.connect("clicked", on_click)
+
         self.header = Gtk.Label.new("")
         self.header.set_xalign(0)
         self.header.get_style_context().add_class("challenge-header")
@@ -465,6 +472,7 @@ def reduce_state(state: "State", msg) -> "State":
         return msg.state
     if type(state) in SOLVER_STATE_TYPES:
         return state.reduce(msg)
+    return state
 
 
 class SolverMiddleware:
@@ -473,6 +481,7 @@ class SolverMiddleware:
         self.next = next
         self.rc = rc
         self.solver = None
+        self._select_tile_lock = threading.Lock()
 
     def dispatch(self, msg):
         if type(msg) is Start:
@@ -487,20 +496,27 @@ class SolverMiddleware:
 
     def dispatch_dynamic(self, msg):
         if type(msg) is FinishChallenge:
-            self.send_solution(self.solver.finish())
+            if self.store.state.num_waiting <= 0:
+                self.send_solution(self.solver.finish())
         elif type(msg) is SelectTile:
             self.dynamic_select_tile(msg)
         else:
             self.next(msg)
 
     def dynamic_select_tile(self, msg: SelectTile):
-        tile = self.solver.select_tile(msg.index)
-        self.next(ReplaceTile(index=msg.index, image=None))
+        def select_tile():
+            with self._select_tile_lock:
+                tile = self.solver.select_tile(msg.index)
 
-        def replace():
-            self.next(ReplaceTile(index=msg.index, image=tile.image))
-            return False
-        GLib.timeout_add(round(tile.delay * 1000), replace)
+            def replace():
+                self.next(ReplaceTile(index=msg.index, image=tile.image))
+                return False
+            GLib.timeout_add(round(tile.delay * 1000), replace)
+
+        self.next(ReplaceTile(index=msg.index, image=None))
+        if self.store.state.num_waiting <= 0:
+            raise RuntimeError("num_waiting should be greater than 0")
+        threading.Thread(target=select_tile, daemon=True).start()
 
     def dispatch_multicaptcha(self, msg):
         if type(msg) is FinishChallenge:
@@ -577,6 +593,7 @@ class DynamicState(namedtuple("DynamicState", [
     def reduce(self, msg) -> "DynamicState":
         if type(msg) is ReplaceTile:
             return self.replace_tile(msg.index, msg.image)
+        return self
 
 
 class MultiCaptchaState(namedtuple("MultiCaptchaState", [
@@ -621,6 +638,7 @@ class MultiCaptchaState(namedtuple("MultiCaptchaState", [
             return self.toggle_tile(msg.index)
         if type(msg) is SetNextChallenge:
             return self.from_challenge(msg.challenge)
+        return self
 
 
 SOLVER_STATE_TYPES = (MultiCaptchaState, DynamicState)

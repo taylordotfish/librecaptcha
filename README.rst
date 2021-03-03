@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.7.0
+Version 0.7.1
 
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
