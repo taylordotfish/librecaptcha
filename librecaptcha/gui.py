@@ -135,14 +135,14 @@ class DynamicTile:
             return
         if self.inner is not None:
             self.box.remove(self.inner)
-        self.inner = self.make_inner(pres.image)
-        self.box.add(self.inner)
+        self.make_inner(pres.image)
         self.box.show_all()
         self.pres = pres
 
     def make_inner(self, image: Image.Image):
         if image is None:
-            return self.make_spinner()
+            self.make_spinner()
+            return
 
         button = Gtk.Button.new()
         button.get_style_context().add_class("challenge-button")
@@ -152,7 +152,7 @@ class DynamicTile:
         def on_size_allocate(obj, size):
             self.inner_size = (size.width, size.height)
         button.connect("size-allocate", on_size_allocate)
-        return button
+        self.set_inner(button)
 
     def make_spinner(self):
         width, height = (max(n, 32) for n in self.inner_size)
@@ -164,8 +164,13 @@ class DynamicTile:
         spinner.set_margin_start(left)
         spinner.set_margin_bottom(height - top - 32)
         spinner.set_margin_end(width - left - 32)
+        self.set_inner(spinner)
         spinner.start()
         return spinner
+
+    def set_inner(self, widget):
+        self.inner = widget
+        self.box.add(self.inner)
 
 
 class MultiCaptchaTile:

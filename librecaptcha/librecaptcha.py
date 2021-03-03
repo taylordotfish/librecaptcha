@@ -20,7 +20,7 @@ from .errors import ChallengeBlockedError, UnknownChallengeError
 from .errors import GtkImportError
 from .recaptcha import ReCaptcha
 
-__version__ = "0.7.1"
+__version__ = "0.7.2-dev"
 
 GUI_MISSING_MESSAGE = """\
 Error: Could not load the GUI. Is PyGObject installed?
