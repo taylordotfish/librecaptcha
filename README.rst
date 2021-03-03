@@ -1,7 +1,7 @@
 librecaptcha
 ============
 
-Version 0.6.6-dev
+Version 0.7.0
 
 librecaptcha is a free/libre program and library that allows you to solve
 `reCAPTCHA`_ challenges.
@@ -149,6 +149,22 @@ dozens or more.
 
 What’s new
 ----------
+
+Version 0.7.0:
+
+* librecaptcha now uses `esprima`_ for JavaScript parsing. The old slimit-based
+  implementation will continue to work for now, but is deprecated.
+* Added a small `test server`_. Set the environment variable
+  ``LIBRECAPTCHA_USE_TEST_SERVER`` to a non-empty string when running
+  librecaptcha to connect to the test server.
+* librecaptcha’s behavior matches the behavior of the proprietary client more
+  closely now.
+* Added various tweaks and bug fixes to the GUI and CLI.
+* Improved librecaptcha’s internal architecture.
+* Updated user-agent list.
+
+.. _esprima: https://pypi.org/project/esprima/
+.. _test server: test-server/
 
 Version 0.6.3:
 
