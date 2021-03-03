@@ -1,4 +1,4 @@
-# Copyright (C) 2017, 2019 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2017, 2019, 2021 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -15,25 +15,33 @@
 # You should have received a copy of the GNU General Public License
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
-from .errors import UserError
-from .frontend import Frontend
-from PIL import ImageDraw, ImageFont
+from .recaptcha import ChallengeGoal, GridDimensions, ImageGridChallenge
+from .recaptcha import DynamicSolver, MultiCaptchaSolver, Solver
+from .recaptcha import ReCaptcha, Solution
+from .typing import List
+from PIL import Image, ImageDraw, ImageFont
 
-from threading import Thread, RLock
+from threading import Thread
 from queue import Queue
 import io
-import json
 import os
+import random
+import readline  # noqa: F401
 import subprocess
 import sys
 import time
 
+TYPEFACES = [
+    "FreeSans",
+    "LiberationSans-Regular",
+    "DejaVuSans",
+    "Arial",
+    "arial",
+]
 
-def get_font(size):
-    typefaces = [
-        "FreeSans", "LiberationSans-Regular", "DejaVuSans", "Arial", "arial",
-    ]
-    for typeface in typefaces:
+
+def get_font(size: int) -> ImageFont.ImageFont:
+    for typeface in TYPEFACES:
         try:
             return ImageFont.truetype(typeface, size=size)
         except OSError:
@@ -45,10 +53,9 @@ FONT_SIZE = 16
 FONT = get_font(FONT_SIZE)
 
 
-def read_indices(prompt, max_index):
+def read_indices(prompt: str, max_index: int) -> List[int]:
     while True:
-        print(prompt, end="", flush=True)
-        line = input()
+        line = input(prompt)
         try:
             indices = [int(i) - 1 for i in line.split()]
         except ValueError:
@@ -59,29 +66,28 @@ def read_indices(prompt, max_index):
         print("Numbers out of bounds.")
 
 
-def draw_lines(image, rows, columns):
+def draw_lines(image: Image.Image, dimensions: GridDimensions):
     draw = ImageDraw.Draw(image)
 
     def line(p1, p2):
         draw.line([p1, p2], fill=(255, 255, 255), width=2)
 
-    for i in range(1, rows):
-        y = image.height * i // rows - 1
+    for i in range(1, dimensions.rows):
+        y = image.height * i // dimensions.rows - 1
         line((0, y), (image.width, y))
 
-    for i in range(1, columns):
-        x = image.width * i // columns - 1
+    for i in range(1, dimensions.columns):
+        x = image.width * i // dimensions.columns - 1
         line((x, 0), (x, image.height))
 
 
-def draw_indices(image, rows, columns):
+def draw_indices(image: Image.Image, dimensions: GridDimensions):
     draw = ImageDraw.Draw(image, "RGBA")
-    for i in range(rows * columns):
-        row = i // columns
-        column = i % columns
+    for i in range(dimensions.rows * dimensions.columns):
+        row, column = divmod(i, dimensions.columns)
         corner = (
-            image.width * column // columns,
-            image.height * (row + 1) // rows,
+            image.width * column // dimensions.columns,
+            image.height * (row + 1) // dimensions.rows,
         )
         text_loc = (
             corner[0] + round(FONT_SIZE / 2),
@@ -99,7 +105,7 @@ def draw_indices(image, rows, columns):
         draw.text(text_loc, str(i + 1), fill=(255, 255, 255), font=FONT)
 
 
-def print_temporary(string, file=sys.stdout):
+def print_temporary(string: str, file=sys.stdout):
     end = "" if file.isatty() else "\n"
     print(string, file=file, end=end, flush=True)
 
@@ -110,38 +116,50 @@ def clear_temporary(file=sys.stdout):
     print("\r\x1b[K", file=file, end="", flush=True)
 
 
-class CliSolver:
-    def __init__(self, solver):
+HAS_DISPLAY_CMD = (os.name == "posix")
+
+
+def run_display_cmd():
+    return subprocess.Popen(
+        ["display", "-"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def try_display_cmd(image: Image.Image):
+    global HAS_DISPLAY_CMD
+    if not HAS_DISPLAY_CMD:
+        return None
+
+    img_buffer = io.BytesIO()
+    image.save(img_buffer, "png")
+    img_bytes = img_buffer.getvalue()
+
+    try:
+        proc = run_display_cmd()
+    except FileNotFoundError:
+        HAS_DISPLAY_CMD = False
+        return None
+
+    proc.stdin.write(img_bytes)
+    proc.stdin.close()
+    return proc
+
+
+class SolverCli:
+    def __init__(self, cli: "Cli", solver: Solver):
+        self.cli = cli
         self.solver = solver
         self.__image_procs = []
-        self.__has_display = (os.name == "posix")
-
-    def __run_display(self, img_bytes):
-        return subprocess.Popen(
-            ["display", "-"], stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-
-    def __try_display(self, image):
-        if not self.__has_display:
-            return False
-        img_buffer = io.BytesIO()
-        image.save(img_buffer, "png")
-        img_bytes = img_buffer.getvalue()
-
-        try:
-            proc = self.__run_display(img_bytes)
-        except FileNotFoundError:
-            self.__has_display = False
-            return False
-        proc.stdin.write(img_bytes)
-        proc.stdin.close()
-        self.__image_procs.append(proc)
-        return True
 
     def show_image(self, image):
-        if not self.__try_display(image):
+        proc = try_display_cmd(image)
+        if proc is None:
             image.show()
+        else:
+            self.__image_procs.append(proc)
 
     def hide_images(self):
         for proc in self.__image_procs:
@@ -152,34 +170,37 @@ class CliSolver:
         self.solver.run()
 
 
-class CliDynamicSolver(CliSolver):
-    def __init__(self, solver):
-        super().__init__(solver)
-        solver.on_initial_image = self.handle_initial_image
-        solver.on_tile_image = self.handle_tile_image
+class DynamicCli(SolverCli):
+    def __init__(self, cli: "Cli", solver: DynamicSolver):
+        super().__init__(cli, solver)
         self.image_open = False
         self.image_queue = Queue()
         self.num_pending = 0
-        self.lock = RLock()
 
-    def handle_initial_image(self, image, **kwargs):
-        solver = self.solver
-        num_rows, num_columns = solver.dimensions
-        draw_indices(image, num_rows, num_columns)
+    def run(self):
+        challenge = self.solver.get_challenge()
+        self.cli.handle_challenge(challenge)
+
+        image = challenge.image
+        num_rows = challenge.dimensions.rows
+        num_columns = challenge.dimensions.columns
+        num_tiles = challenge.dimensions.count
+        draw_indices(image, challenge.dimensions)
         self.show_image(image)
 
         print("Take a look at the grid of tiles that just appeared. ", end="")
         print("({} rows, {} columns)".format(num_rows, num_columns))
         print("Which tiles should be selected?")
-        print("(Top-left is 1; bottom-right is {}.)".format(solver.num_tiles))
+        print("(Top-left is 1; bottom-right is {}.)".format(num_tiles))
         indices = read_indices(
-            "Enter numbers separated by spaces: ", solver.num_tiles,
+            "Enter numbers separated by spaces: ",
+            num_tiles,
         )
         print()
         self.hide_images()
         self.select_initial(indices)
         self.new_tile_loop()
-        solver.finish()
+        return self.solver.finish()
 
     def new_tile_loop(self):
         while self.num_pending > 0:
@@ -199,113 +220,98 @@ class CliDynamicSolver(CliSolver):
             if accept:
                 self.select_tile(index)
 
-    # Called from a non-main thread.
-    def handle_tile_image(self, index, image, **kwargs):
-        self.image_queue.put((index, image))
-
     def select_initial(self, indices):
+        print_temporary("Selecting images...")
         for i, index in enumerate(indices):
-            # Avoid sending initial requests simultaneously.
-            self.select_tile(index, 0.25 * i)
+            if i > 0:
+                # Avoid sending initial requests simultaneously.
+                time.sleep(random.uniform(0.5, 1))
+            self.select_tile(index)
+        clear_temporary()
 
-    def select_tile_sync(self, index):
+    def select_tile(self, index: int):
         self.num_pending += 1
-        self.solver.select_tile(index)
+        tile = self.solver.select_tile(index)
 
-    def select_tile(self, index, delay=0):
+        def add_to_queue():
+            self.image_queue.put((index, tile.image))
+
         def target():
-            delay and time.sleep(delay)
-            with self.lock:
-                self.select_tile_sync(index)
-        Thread(target=target, daemon=True).start()
+            time.sleep(tile.delay)
+            add_to_queue()
+
+        if tile.delay > 0:
+            Thread(target=target, daemon=True).start()
+        else:
+            target()
 
 
-class CliMultiCaptchaSolver(CliSolver):
-    def __init__(self, solver):
-        super().__init__(solver)
-        solver.on_image = self.handle_image
+class MultiCaptchaCli(SolverCli):
+    def __init__(self, cli: "Cli", solver: MultiCaptchaSolver):
+        super().__init__(cli, solver)
 
-    def handle_image(self, image, **kwargs):
-        solver = self.solver
-        num_rows, num_columns = solver.dimensions
-        draw_lines(image, num_rows, num_columns)
-        draw_indices(image, num_rows, num_columns)
+    def run(self) -> Solution:
+        result = self.solver.first_challenge()
+        while not isinstance(result, Solution):
+            if not isinstance(result, ImageGridChallenge):
+                raise TypeError("Unexpected type: {}".format(type(result)))
+            indices = self.handle_challenge(result)
+            result = self.solver.select_indices(indices)
+        return result
+
+    def handle_challenge(self, challenge: ImageGridChallenge) -> List[int]:
+        self.cli.handle_challenge(challenge)
+        num_rows = challenge.dimensions.rows
+        num_columns = challenge.dimensions.columns
+        num_tiles = challenge.dimensions.count
+
+        image = challenge.image
+        draw_lines(image, challenge.dimensions)
+        draw_indices(image, challenge.dimensions)
         self.show_image(image)
 
         print("Take a look at the grid of tiles that just appeared. ", end="")
         print("({} rows, {} columns)".format(num_rows, num_columns))
         print("Which tiles should be selected?")
-        print("(Top-left is 1; bottom-right is {}.)".format(solver.num_tiles))
+        print("(Top-left is 1; bottom-right is {}.)".format(num_tiles))
         indices = read_indices(
-            "Enter numbers separated by spaces: ", solver.num_tiles,
+            "Enter numbers separated by spaces: ",
+            num_tiles,
         )
         print()
         self.hide_images()
-        solver.select_indices(indices)
+        return indices
 
 
-BLOCKED_MSG = """\
-ERROR: Received challenge type "{}".
-
-This is usually an indication that reCAPTCHA requests from this network are
-being blocked.
-
-Try installing Tor (the full installation, not just the browser bundle) and
-running this program over Tor with the "torsocks" command.
-
-Alternatively, try waiting a while before requesting another challenge over
-this network.
-"""
-
-
-class Cli(Frontend):
-    def __init__(self, recaptcha):
-        super().__init__(recaptcha)
-        rc = recaptcha
-        rc.on_goal = self.handle_goal
-        rc.on_challenge = self.handle_challenge
-        rc.on_challenge_dynamic = self.challenge_dynamic
-        rc.on_challenge_multicaptcha = self.challenge_multicaptcha
-        rc.on_challenge_blocked = self.challenge_blocked
-        rc.on_challenge_unknown = self.challenge_unknown
+class Cli:
+    def __init__(self, rc: ReCaptcha):
+        self.rc = rc
         self._first = True
 
-    def handle_goal(self, goal, meta, **kwargs):
-        if goal:
-            print("CHALLENGE OBJECTIVE: {}".format(goal))
+    def run(self) -> str:
+        result = self.rc.first_solver()
+        while not isinstance(result, str):
+            solution = self.run_solver(result)
+            result = self.rc.send_solution(solution)
+        return result
+
+    def run_solver(self, solver: Solver) -> Solution:
+        return {
+            DynamicSolver: DynamicCli,
+            MultiCaptchaSolver: MultiCaptchaCli,
+        }[type(solver)](self, solver).run()
+
+    def show_goal(self, goal: ChallengeGoal):
+        plain = goal.plain
+        if plain:
+            print("CHALLENGE OBJECTIVE: {}".format(plain))
             return
         print("WARNING: Could not determine challenge objective.")
-        print("Challenge information: {}".format(json.dumps(meta)))
+        print("Challenge information: {}".format(goal.fallback))
 
-    def handle_challenge(self, ctype, **kwargs):
+    def handle_challenge(self, challenge: ImageGridChallenge):
         if not self._first:
             print("You must solve another challenge.")
             print()
         self._first = False
-
-    def challenge_dynamic(self, solver, **kwargs):
-        CliDynamicSolver(solver).run()
-
-    def challenge_multicaptcha(self, solver, **kwargs):
-        CliMultiCaptchaSolver(solver).run()
-
-    def challenge_blocked(self, ctype, **kwargs):
-        self.raise_challenge_blocked(ctype)
-
-    def challenge_unknown(self, ctype, **kwargs):
-        self.raise_challenge_unknown(ctype)
-
-    @classmethod
-    def raise_challenge_blocked(cls, ctype):
-        print(BLOCKED_MSG.format(ctype), end="")
-        raise UserError(
-            "Error: Unsupported challenge type: {}.\n".format(ctype) +
-            "Requests are most likely being blocked; see the message above.",
-        )
-
-    @classmethod
-    def raise_challenge_unknown(cls, ctype):
-        raise UserError(
-            "Error: Got unsupported challenge type: {}\n".format(ctype) +
-            "Please file an issue if this problem persists.",
-        )
+        self.show_goal(challenge.goal)

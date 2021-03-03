@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
+from . import errors
 from .errors import UserError, UserExit
 from .librecaptcha import get_token, __version__
 from .user_agents import random_user_agent
@@ -189,6 +190,12 @@ class ArgParser:
         return self.parsed
 
 
+USER_ERRORS = (
+    errors.GtkImportError,
+    errors.SiteUrlParseError,
+    errors.UnsupportedChallengeError,
+)
+
 GOT_TOKEN_MSG = """\
 Received token. This token should usually be submitted with the form as the
 value of the "g-recaptcha-response" field.
@@ -204,10 +211,17 @@ def run(args: ParsedArgs):
     if args.debug:
         print("User-agent string: {}".format(user_agent), file=sys.stderr)
 
-    uvtoken = get_token(
-        args.api_key, args.site_url, user_agent,
-        gui=args.gui, debug=args.debug,
-    )
+    try:
+        uvtoken = get_token(
+            api_key=args.api_key,
+            site_url=args.site_url,
+            user_agent=user_agent,
+            gui=args.gui,
+            debug=args.debug,
+        )
+    except USER_ERRORS as e:
+        raise UserError(str(e)) from e
+
     print(GOT_TOKEN_MSG)
     if random_ua:
         print("Note: The following user-agent string was used:")
@@ -230,7 +244,8 @@ def run_or_exit(args: ParsedArgs):
     except UserExit:
         sys.exit(2)
     except UserError as e:
-        print(e.message, file=sys.stderr)
+        if e.show_by_default:
+            print(e.message, file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
         print(file=sys.stderr)

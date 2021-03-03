@@ -1,4 +1,4 @@
-# Copyright (C) 2017, 2019 taylor.fish <contact@taylor.fish>
+# Copyright (C) 2017, 2019, 2021 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
 #
@@ -16,39 +16,69 @@
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import cli
-from .errors import GtkImportError, UserError
+from .errors import ChallengeBlockedError, UnknownChallengeError
+from .errors import GtkImportError
 from .recaptcha import ReCaptcha
 
 __version__ = "0.6.6-dev"
 
+GUI_MISSING_MESSAGE = """\
+Error: Could not load the GUI. Is PyGObject installed?
+Try (re)installing librecaptcha[gtk] with pip.
+For more details, add the --debug option.
+"""
+
+CHALLENGE_BLOCKED_MESSAGE = """\
+ERROR: Received challenge type "{}".
+
+This is usually an indication that reCAPTCHA requests from this network are
+being blocked.
+
+Try installing Tor (the full installation, not just the browser bundle) and
+running this program over Tor with the "torsocks" command.
+
+Alternatively, try waiting a while before requesting another challenge over
+this network.
+"""
+
+UNKNOWN_CHALLENGE_MESSAGE = """\
+ERROR: Received unrecognized challenge type "{}".
+Currently, the only supported challenge types are "dynamic" and "multicaptcha".
+Please file an issue if this problem persists.
+"""
+
 
 def _get_gui():
-    try:
-        from . import gui
-    except GtkImportError as e:
-        raise UserError(
-            "Error: Could not load the GUI. Is PyGObject installed?\n"
-            "Try (re)installing librecaptcha[gtk] with pip.\n"
-            "For more details, add the --debug option.",
-        ) from e
+    from . import gui
     return gui
 
 
 def has_gui():
     try:
-        from . import gui  # noqa: F401
+        _get_gui()
     except GtkImportError:
         return False
     return True
 
 
-def get_token(api_key, site_url, user_agent, *, gui=False, debug=False):
-    rc = ReCaptcha(api_key, site_url, user_agent, debug=debug)
-    ui = (_get_gui().Gui if gui else cli.Cli)(rc)
-    uvtoken = None
-
-    def callback(token):
-        nonlocal uvtoken
-        uvtoken = token
-    ui.run(callback)
-    return uvtoken
+def get_token(
+    api_key: str,
+    site_url: str,
+    user_agent: str, *,
+    gui=False,
+    debug=False,
+) -> str:
+    ui = (_get_gui().Gui if gui else cli.Cli)(ReCaptcha(
+        api_key=api_key,
+        site_url=site_url,
+        user_agent=user_agent,
+        debug=debug,
+    ))
+    try:
+        return ui.run()
+    except ChallengeBlockedError as e:
+        print(CHALLENGE_BLOCKED_MESSAGE.format(e.challenge_type))
+        raise
+    except UnknownChallengeError as e:
+        print(UNKNOWN_CHALLENGE_MESSAGE.format(e.challenge_type))
+        raise
