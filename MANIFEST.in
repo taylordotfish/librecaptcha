@@ -16,5 +16,6 @@
 # along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
 
 include LICENSE
+graft scripts
 global-exclude *.pyc
 global-exclude /.*
