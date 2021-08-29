@@ -1,4 +1,4 @@
-# Copyright (C) 2019 cyclopsian (https://github.com/cyclopsian)
+# Copyright (C) 2019 cyclopsian
 # Copyright (C) 2019, 2021 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
