@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
+# along with librecaptcha.  If not, see <https://www.gnu.org/licenses/>.
 
 # flake8: noqa
 from . import librecaptcha, extract_strings, user_agents

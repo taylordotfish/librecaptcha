@@ -1,4 +1,4 @@
-# Copyright (C) 2019 cyclopsian (https://github.com/cyclopsian)
+# Copyright (C) 2019 cyclopsian
 # Copyright (C) 2019, 2021 taylor.fish <contact@taylor.fish>
 #
 # This file is part of librecaptcha.
@@ -14,7 +14,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
+# along with librecaptcha.  If not, see <https://www.gnu.org/licenses/>.
 
 from .errors import UserExit, GtkImportError
 from .recaptcha import ChallengeGoal, GridDimensions, ImageGridChallenge
