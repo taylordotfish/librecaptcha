@@ -13,14 +13,14 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with librecaptcha.  If not, see <http://www.gnu.org/licenses/>.
+# along with librecaptcha.  If not, see <https://www.gnu.org/licenses/>.
 
 from . import cli
 from .errors import ChallengeBlockedError, UnknownChallengeError
 from .errors import GtkImportError
 from .recaptcha import ReCaptcha
 
-__version__ = "0.7.3"
+__version__ = "0.7.4-dev"
 
 GUI_MISSING_MESSAGE = """\
 Error: Could not load the GUI. Is PyGObject installed?
