@@ -58,7 +58,7 @@ Run without installing
 Run the first set of commands in the previous section to clone the repository.
 Then, install the required dependencies by running::
 
-    sudo pip3 install -r requirements.txt
+    sudo ./deps/install-dependencies.py
 
 To install the dependencies locally, run without ``sudo`` and add ``--user``.
 
@@ -216,8 +216,9 @@ Dependencies
   - `PyGObject`_ (only for GUI)
 
 The installation instructions above handle installing the Python packages.
-Alternatively, running ``pip3 install -r requirements.freeze.txt`` will install
-specific versions of the dependencies that have been confirmed to work.
+Alternatively, running ``pip3 install -r deps/requirements.lock`` will install
+specific versions of the dependencies that have been tested (but they may be
+older or have problems).
 
 .. _Python: https://www.python.org/
 .. _Pillow: https://pypi.org/project/Pillow/
