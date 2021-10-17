@@ -42,47 +42,6 @@ def long_description():
     return "".join(result)
 
 
-LICENSE = """\
-License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)\
-"""
-
-
 setup(
-    name="librecaptcha",
-    version="0.7.4-dev",
-    description="A free/libre interface for solving reCAPTCHA challenges.",
     long_description=long_description(),
-    url="https://github.com/taylordotfish/librecaptcha",
-    author="taylor.fish",
-    author_email="contact@taylor.fish",
-    license="GNU General Public License v3 or later (GPLv3+)",
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Topic :: Internet", LICENSE,
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-    ],
-    keywords="captcha recaptcha",
-    packages=["librecaptcha"],
-    entry_points={
-        "console_scripts": [
-            "librecaptcha=librecaptcha:main",
-        ],
-    },
-    install_requires=[
-        "Pillow>=4.1.1",
-        "requests>=2.18.1,<3",
-        "esprima>=4.0.0,<5",
-    ],
-    python_requires=">=3.5",
-    extras_require={
-        "gtk": [
-            "PyGObject>=3.30.0,<4",
-        ]
-    },
 )
